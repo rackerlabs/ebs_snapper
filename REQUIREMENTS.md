@@ -16,10 +16,12 @@ Rackspace Fanatical Support for AWS provides Aviator service level customers wit
 ## Features
 
 -	Snapshotting all EBS volumes on your account at regular intervals
+- Ability to select volumes for snapshot by entire ASG, EC2 tags, or instance names
 -	EBS volume snapshotting of select volumes, based on configuration settings or defaults
 -	Flexible scheduling of snapshots **per instance**, based on configuration settings or defaults
 -	Configurable snapshot retention periods of select volumes, based on configuration settings or defaults
 -	Ability to retain a minimum number of snapshots regardless of retention period
+- All tags from a volume should be transferred to snapshots
 -	Rackspace ticket notification and response should an EBS snapshot failure occur
 
 ## Out of scope
