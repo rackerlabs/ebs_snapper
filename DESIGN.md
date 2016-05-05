@@ -6,7 +6,7 @@ We're going to use AWS Lambda jobs for each of the regularly scheduled tasks tha
 
 ## Data storage, state information
 
-There are two main data storage locations for this project: DynamoDB to store the configuration data below, as well as tags on EC2 volume snapshots used to store strictly the expiration date of snapshots.
+There are one main data storage location for this project: DynamoDB to store the configuration data below. There is one exception -- tags on EC2 volume snapshots will be used to store only the expiration date of the snapshot itself. We chose to store the expiration date of a snapshot as a tag on the snapshot because it's essentially metadata about that snapshot. All other configuration data isn't snapshot specific, and might not even be instance-specific; we expect many customers to only have a single default configuration that applies to all instances in DynamoDB.
 
 Code will iterate through every EC2 instance, and look for the first configuration stanza that has a match. If there is no match, a default section will be used that contains only settings, no match elements.
 
@@ -41,7 +41,7 @@ For the input region, loop through every snapshot with a retention tag. If the c
 
 For now, this is all going to be in one Python module, plus a 2nd module that contains only the Lambda functions. We'll use Lambda Uploader and specify a different function as the entry point for each lambda job above. We'll also produce a CloudFormation template that creates:
   - SNS topic for fanout
-  - S3 bucket for lambda
+  - S3 bucket for lambda job source code
   - Lambda execution role (including needed permissions)
   - Cloud watch alarms for job errors (failed snapshots and failed deletion of snapshots)
   - Schedules for the Lambda jobs using CloudWatch events
