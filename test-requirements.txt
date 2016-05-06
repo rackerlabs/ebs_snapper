@@ -1,0 +1,4 @@
+flake8==2.5.4
+pylint==1.5.5
+tox
+tox-pyenv

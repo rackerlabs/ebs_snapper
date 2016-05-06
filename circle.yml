@@ -1,0 +1,14 @@
+machine:
+  python:
+    version: '2.7.10'
+
+dependencies:
+  pre:
+    - pip install -U pip
+    - pip install -r test-requirements.txt
+
+test:
+  override:
+    - flake8 ./
+    - pylint *.py
+    # eventually add tox -v and add tox.ini when there are tests
