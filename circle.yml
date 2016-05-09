@@ -11,4 +11,5 @@ test:
   override:
     - flake8 ./
     - pylint *.py
+    - aws cloudformation validate-template --region us-east-1 --template-body=file://cloudformation.json
     # eventually add tox -v and add tox.ini when there are tests

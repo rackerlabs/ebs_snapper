@@ -1,0 +1,22 @@
+{
+  "name": "ebs_snapper_lambda_v2",
+  "description": "Configuration file for building S3-uploadable archive of this entire package",
+  "region": "us-east-1",
+  "handler": "function.lambda_handler",
+  "role": "arn:aws:iam::00000000000:role/lambda_basic_execution",
+  "ignore": [
+    "circle.yml",
+    ".git",
+    "/*.pyc"
+  ],
+  "timeout": 30,
+  "memory": 512,
+  "vpc": {
+    "subnets": [
+      "subnet-00000000"
+    ],
+    "security_groups": [
+      "sg-00000000"
+    ]
+  }
+}
