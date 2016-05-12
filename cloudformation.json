@@ -58,7 +58,7 @@
           "S3Key" : "lambda_function.zip"
         },
         "Description" : "snapshot and tags main task",
-        "Handler" : "ebs_snapper_lambda_v2.lambda_ebs_snapper_fanout_snap",
+        "Handler" : "lambdas.lambda_fanout_snapshot",
         "MemorySize" : 256,
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
@@ -99,7 +99,7 @@
           "S3Key" : "lambda_function.zip"
         },
         "Description" : "snapshot and tags main task",
-        "Handler" : "ebs_snapper_lambda_v2.lambda_ebs_snapper_fanout_clean",
+        "Handler" : "lambas.lambda_fanout_clean",
         "MemorySize" : 256,
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
@@ -140,7 +140,7 @@
           "S3Key" : "lambda_function.zip"
         },
         "Description" : "create tags and snapshots task",
-        "Handler" : "ebs_snapper_lambda_v2.lambda_ebs_snapper_snap",
+        "Handler" : "lambdas.lambda_snapshot",
         "MemorySize" : 128,
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
@@ -181,7 +181,7 @@
           "S3Key" : "lambda_function.zip"
         },
         "Description" : "create tags and snapshots task",
-        "Handler" : "ebs_snapper_lambda_v2.lambda_ebs_snapper_clean",
+        "Handler" : "lambdas.lambda_clean",
         "MemorySize" : 128,
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
