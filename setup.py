@@ -17,4 +17,18 @@ setup(
             'ebs-snapper=ebs_snapper_lambda_v2.shell:main'
         ]
     },
+    test_suite='tests',
+    install_requires=[
+        'botocore',
+        'boto3',
+        'logging'
+    ],
+    tests_require=[
+        'moto',
+        'flake8',
+        'pylint',
+        'tox',
+        'tox-pyenv',
+        'pytest'
+    ]
 )
