@@ -1,4 +1,6 @@
 machine:
+  environment:
+    AWS_DEFAULT_REGION: us-east-1
   python:
     version: '2.7.10'
 
@@ -10,5 +12,5 @@ dependencies:
 
 test:
   override:
-    - aws cloudformation validate-template --region us-east-1 --template-body=file://cloudformation.json
+    - aws cloudformation validate-template --template-body=file://cloudformation.json
     - tox

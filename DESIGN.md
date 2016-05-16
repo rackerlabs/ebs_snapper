@@ -21,6 +21,22 @@ There are one main data storage location for this project: DynamoDB to store the
     - Minimum number of snapshots (M, integer, defaults to 1)
     - Frequency of snapshots (F hours, days, weeks, minimum is 1 hour)
 
+Example of a JSON document from the DynamoDB table's `configuration` field (see [cloudformation template](cloudformation.json)):
+```
+{
+  "match": {
+    "instance_id": "i-abc12345",
+    "instance_tag": "special_flower",
+    "instance_name": "legacy_server"
+  },
+  "snapshot": {
+    "retention": "4 days",
+    "minimum": 5,
+    "frequency": "12 hours"
+  }
+}
+```
+
 ## Actual algorithms/lambda jobs
 
 ### Fan Out 1 - 'ebs_snapper_fanout_snap'
