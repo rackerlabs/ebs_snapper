@@ -24,6 +24,30 @@
     }
   },
   "Resources" : {
+    "EbsSnapshotConfigurationTable" : {
+      "Type" : "AWS::DynamoDB::Table",
+      "Properties" : {
+        "TableName" : "ebs_snapshot_configuration",
+        "AttributeDefinitions" : [
+          {
+            "AttributeName" : "aws_account_id",
+            "AttributeType" : "S"
+          },
+          {
+            "AttributeName" : "id",
+            "AttributeType" : "S"
+          }
+        ],
+        "KeySchema" : [
+          { "AttributeName" : "aws_account_id", "KeyType" : "HASH" },
+          { "AttributeName" : "id", "KeyType" : "RANGE" }
+        ],
+        "ProvisionedThroughput" : {
+          "ReadCapacityUnits" : "5" ,
+          "WriteCapacityUnits" : "10"
+        }
+      }
+    },
     "FanoutCreateSnapshotAlarm" : {
       "Type" : "AWS::CloudWatch::Alarm",
       "Properties" : {
