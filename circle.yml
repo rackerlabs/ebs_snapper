@@ -5,11 +5,10 @@ machine:
 dependencies:
   pre:
     - pip install -U pip
-    - pip install -r test-requirements.txt
+    - pip install -U tox tox-pyenv
+    - pyenv local 2.7.10
 
 test:
   override:
-    - flake8 ./
-    - pylint *.py
     - aws cloudformation validate-template --region us-east-1 --template-body=file://cloudformation.json
-    # eventually add tox -v and add tox.ini when there are tests
+    - tox

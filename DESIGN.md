@@ -25,7 +25,7 @@ There are one main data storage location for this project: DynamoDB to store the
 
 ### Fan Out 1 - 'ebs_snapper_fanout_snap'
 
-This algorithm is pretty straightforward. We need to fan out per region, and then trigger the snapshot lambda job for each region. This job will run hourly to trigger the snapshot.
+This algorithm is pretty straightforward. We will loop through each region, enumerate running and stopped instances, and then trigger the snapshot job using (region, instance). This job will run hourly to trigger the snapshot.
 
 ### Fan Out 2 - 'ebs_snapper_fanout_clean'
 
