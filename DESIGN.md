@@ -8,9 +8,14 @@ We're going to use AWS Lambda jobs for each of the regularly scheduled tasks tha
 
 There are one main data storage location for this project: DynamoDB to store the configuration data below. There is one exception -- tags on EC2 volume snapshots will be used to store only the expiration date of the snapshot itself. We chose to store the expiration date of a snapshot as a tag on the snapshot because it's essentially metadata about that snapshot. All other configuration data isn't snapshot specific, and might not even be instance-specific; we expect many customers will have an empty configuration (no snapshots anywhere) or a small configuration stanza (to match just a small number of instances)
 
+Note: All instances will be filtered by whether they are running or stopped, using:
+```
+{'Name': 'instance-state-name', 'Values': ['running', 'stopped']}
+```
+
 - Configuration elements:
 
-  - Matching elements (multiple elements are AND'd together by AWS describe* APIs):
+  - Matching elements (multiple elements are AND'd together by AWS describe* APIs [1]):
     - Instance ID
     - Tag on Instance
     - ASG ID for membership
@@ -21,13 +26,15 @@ There are one main data storage location for this project: DynamoDB to store the
     - Minimum number of snapshots (M, integer, defaults to 1)
     - Frequency of snapshots (F hours, days, weeks, minimum is 1 hour)
 
+[1] http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Client.describe_instances
+
 Example of a JSON document from the DynamoDB table's `configuration` field (see [cloudformation template](cloudformation.json)):
 ```
 {
   "match": {
-    "instance_id": "i-abc12345",
-    "instance_tag": "special_flower",
-    "instance_name": "legacy_server"
+    "instance-id": "i-abc12345",
+    "tag:key": "tag-value",
+    "tag:Name": "legacy_server_name_*"
   },
   "snapshot": {
     "retention": "4 days",
