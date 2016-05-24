@@ -3,6 +3,9 @@
 """Module for testing clean module."""
 
 import json
+import datetime
+from datetime import timedelta
+import dateutil
 from moto import mock_ec2, mock_sns
 from ebs_snapper_lambda_v2 import clean, utils, mocks
 
@@ -42,7 +45,47 @@ def test_send_fanout_message_clean(mocker):
         Message=json.dumps({'region': 'us-west-2'}))
 
 
-def test_clean_snapshot():
+@mock_ec2
+def test_clean_snapshot(mocker):
     """Test for method of the same name."""
-    # TBD: needs to be implemented still in clean module
-    pass
+    # def clean_snapshot(region):
+    region = 'us-east-1'
+    owner_ids = utils.get_owner_id()
+
+    # mock the over-arching method that just loops over the last 10 days
+    mocker.patch('ebs_snapper_lambda_v2.clean.clean_snapshots_tagged')
+    clean.clean_snapshot(region)
+
+    # be sure we call deletes for multiple days
+    delete_on = datetime.date.today()
+    for i in range(0, 10):
+        clean.clean_snapshots_tagged.assert_any_call(  # pylint: disable=E1103
+            delete_on + timedelta(days=-i),
+            owner_ids,
+            region)
+
+
+@mock_ec2
+def test_clean_snapshots_tagged(mocker):
+    """Test for method of the same name."""
+    # default settings
+    region = 'us-east-1'
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+    owner_ids = utils.get_owner_id()
+
+    # figure out the EBS volume that came with our instance
+    volume_id = utils.get_volumes(instance_id, region)[0]
+
+    # make a snapshot that should be deleted today too
+    now = datetime.datetime.now(dateutil.tz.tzutc())
+    delete_on = now.strftime('%Y-%m-%d')
+    utils.snapshot_and_tag(volume_id, delete_on, region)
+    snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
+
+    mocker.patch('ebs_snapper_lambda_v2.utils.delete_snapshot')
+    clean.clean_snapshots_tagged(now, owner_ids, region)
+
+    # ensure we deleted this snapshot if it was ready to die today
+    utils.delete_snapshot.assert_any_call(snapshot_id, region)  # pylint: disable=E1103

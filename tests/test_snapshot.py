@@ -2,6 +2,8 @@
 # Copyright 2015-2016 Rackspace US, Inc.
 """Module for testing snapshot module."""
 
+import datetime
+import dateutil
 import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2
 from ebs_snapper_lambda_v2 import snapshot, dynamo, utils
@@ -98,7 +100,75 @@ def test_perform_fanout_by_region_snapshot(mocker):
             snapshot_settings=config_data["snapshot"])
 
 
-def test_perform_snapshot():
+@mock_ec2
+def test_perform_snapshot(mocker):
     """Test for method of the same name."""
-    # TBD: needs to be implemented still in snapshot module
-    pass
+    # some default settings for this test
+    region = 'us-west-2'
+    snapshot_settings = {
+        'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
+        'match': {'tag:backup': 'yes'}
+    }
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+
+    # figure out the EBS volume that came with our instance
+    instance_details = utils.get_instance(instance_id, region)
+    block_devices = instance_details.get('BlockDeviceMappings', [])
+    volume_id = block_devices[0]['Ebs']['VolumeId']
+
+    # determine what we should be tagging the snapshot
+    ret, freq = utils.parse_snapshot_settings(snapshot_settings)  # pylint: disable=unused-variable
+    now = datetime.datetime.now(dateutil.tz.tzutc())
+    delete_on_dt = now + ret
+    delete_on = delete_on_dt.strftime('%Y-%m-%d')
+
+    # patch the final method that takes a snapshot
+    mocker.patch('ebs_snapper_lambda_v2.utils.snapshot_and_tag')
+
+    # since there are no snapshots, we should expect this to trigger one
+    snapshot.perform_snapshot(region, instance_id, snapshot_settings)
+
+    # test results
+    utils.snapshot_and_tag.assert_any_call(  # pylint: disable=E1103
+        volume_id,
+        delete_on,
+        region)
+
+
+@mock_ec2
+def test_perform_snapshot_skipped(mocker):
+    """Test for method of the same name."""
+    # some default settings for this test
+    region = 'us-west-2'
+    snapshot_settings = {
+        'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
+        'match': {'tag:backup': 'yes'}
+    }
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+
+    # figure out the EBS volume that came with our instance
+    instance_details = utils.get_instance(instance_id, region)
+    block_devices = instance_details.get('BlockDeviceMappings', [])
+    volume_id = block_devices[0]['Ebs']['VolumeId']
+
+    # determine what we should be tagging the snapshot
+    ret, freq = utils.parse_snapshot_settings(snapshot_settings)  # pylint: disable=unused-variable
+    now = datetime.datetime.now(dateutil.tz.tzutc())
+    delete_on_dt = now + ret
+    delete_on = delete_on_dt.strftime('%Y-%m-%d')
+
+    # now take a snapshot, so we expect this next one to be skipped
+    utils.snapshot_and_tag(volume_id, delete_on, region)
+
+    # patch the final method that takes a snapshot
+    mocker.patch('ebs_snapper_lambda_v2.utils.snapshot_and_tag')
+
+    # since there are no snapshots, we should expect this to trigger one
+    snapshot.perform_snapshot(region, instance_id, snapshot_settings)
+
+    # test results (should not create a second snapshot)
+    utils.snapshot_and_tag.assert_not_called()  # pylint: disable=E1103

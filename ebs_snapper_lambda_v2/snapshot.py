@@ -5,6 +5,8 @@
 from __future__ import print_function
 import json
 import logging
+import datetime
+import dateutil
 
 import boto3
 from ebs_snapper_lambda_v2 import utils, dynamo
@@ -83,8 +85,8 @@ def send_message_instances(region, sns_topic, configuration_snapshot, filters):
 
 def send_fanout_message(instance_id, region, topic_arn, snapshot_settings):
     """Publish an SNS message to topic_arn that specifies an instance and region to review"""
-    LOG.debug('send_fanout_message for region %s, instance %s to %s',
-              region, instance_id, topic_arn)
+    LOG.info('send_fanout_message for region %s, instance %s to %s',
+             region, instance_id, topic_arn)
 
     message = json.dumps({'instance_id': instance_id,
                           'region': region,
@@ -94,4 +96,41 @@ def send_fanout_message(instance_id, region, topic_arn, snapshot_settings):
 
 def perform_snapshot(region, instance, snapshot_settings):
     """Check the region and instance, and see if we should take any snapshots"""
-    LOG.info('Perform a snapshot of region %s on instance %s', region, instance)
+    LOG.info('Reviewing snapshots in region %s on instance %s', region, instance)
+
+    # parse out snapshot settings
+    retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
+
+    # grab the data about this instance id
+    instance_data = utils.get_instance(instance, region)
+
+    for dev in instance_data.get('BlockDeviceMappings', []):
+        LOG.debug('Considering device %s', dev)
+        volume_id = dev['Ebs']['VolumeId']
+
+        # find snapshots
+        recent = utils.most_recent_snapshot(volume_id, region)
+        now = datetime.datetime.now(dateutil.tz.tzutc())
+
+        # if newest snapshot time + frequency < now(), do a snapshot
+        if recent is None:
+            LOG.info('Last snapshot for volume %s was not found', volume_id)
+            LOG.info('Next snapshot for volume %s should be due now', volume_id)
+        else:
+            LOG.info('Last snapshot for volume %s was at %s', volume_id, recent['StartTime'])
+            LOG.info('Next snapshot for volume %s should be due at %s',
+                     volume_id,
+                     (recent['StartTime'] + frequency))
+
+        # snapshot due?
+        should_perform_snapshot = recent is None or (recent['StartTime'] + frequency) < now
+        if should_perform_snapshot:
+            LOG.info('Performing snapshot for %s', volume_id)
+        else:
+            LOG.info('NOT Performing snapshot for %s', volume_id)
+            continue
+
+        # perform actual snapshot and create tag: retention + now() as a Y-M-D
+        delete_on_dt = now + retention
+        delete_on = delete_on_dt.strftime('%Y-%m-%d')
+        utils.snapshot_and_tag(volume_id, delete_on, region)
