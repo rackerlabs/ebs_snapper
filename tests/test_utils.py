@@ -2,6 +2,8 @@
 # Copyright 2015-2016 Rackspace US, Inc.
 """Module for testing utils module."""
 
+import datetime
+import dateutil
 import boto3
 from moto import mock_ec2, mock_sns
 from ebs_snapper_lambda_v2 import utils, mocks
@@ -96,3 +98,67 @@ def test_convert_configurations_to_boto_filter():
 
     real_output = utils.convert_configurations_to_boto_filter(test_input)
     assert sorted(real_output) == sorted(test_output)
+
+
+def test_flatten():
+    """Ensure flatten method can really flatten an array"""
+    input_arr = [1, 2, [3, 4], [5, 6, 7]]
+    output_arr = utils.flatten(input_arr)
+
+    assert output_arr == range(1, 8)
+
+
+def test_parse_snapshot_setting():
+    """Test for method of the same name"""
+    # def parse_snapshot_settings(snapshot_settings):
+    snapshot_settings = {
+        'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
+        'match': {'tag:backup': 'yes'}
+    }
+    retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
+
+    assert retention == datetime.timedelta(5)  # 5 days
+    assert frequency == datetime.timedelta(0, 7200)  # 2 hours
+
+
+@mock_ec2
+def test_get_instance():
+    """Test for method of the same name"""
+    # def get_instance(instance_id, region):
+    region = 'us-west-2'
+
+    instance_id = mocks.create_instances(region, count=1)[0]
+    found_instance = utils.get_instance(instance_id, region)
+    assert found_instance['InstanceId'] == instance_id
+
+
+@mock_ec2
+def test_snapshot_helper_methods():
+    """Test for the snapshot helper methods"""
+    # def count_snapshots(volume_id, region):
+    region = 'us-west-2'
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+
+    # figure out the EBS volume that came with our instance
+    volume_id = utils.get_volumes(instance_id, region)[0]
+
+    # make some snapshots that should be deleted today too
+    now = datetime.datetime.now(dateutil.tz.tzutc())
+    delete_on = now.strftime('%Y-%m-%d')
+
+    # verify no snapshots, then we take one, then verify there is one
+    assert utils.most_recent_snapshot(volume_id, region) is None
+    utils.snapshot_and_tag(volume_id, delete_on, region)
+    assert utils.most_recent_snapshot(volume_id, region) is not None
+
+    # make 5 more
+    for i in range(0, 5):  # pylint: disable=unused-variable
+        utils.snapshot_and_tag(volume_id, delete_on, region)
+
+    # check the count is 6
+    assert utils.count_snapshots(volume_id, region) == 6
+
+    # check that if we pull them all, there's 6 there too
+    assert len(utils.get_snapshots_by_volume(volume_id, region)) == 6

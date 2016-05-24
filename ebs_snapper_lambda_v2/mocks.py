@@ -46,3 +46,16 @@ def create_dynamodb(region='us-east-1'):
             'WriteCapacityUnits': 10
         }
     )
+
+
+def create_instances(region='us-east-1', count=1):
+    """Create some dummy instances and return the instance ids"""
+
+    client = boto3.client('ec2', region_name=region)
+    ids = []
+
+    create_results = client.run_instances(ImageId='ami-123abc', MinCount=count, MaxCount=count)
+    for created_instance in create_results['Instances']:
+        ids.append(created_instance['InstanceId'])
+
+    return ids
