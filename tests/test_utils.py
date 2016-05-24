@@ -4,7 +4,7 @@
 
 import boto3
 from moto import mock_ec2, mock_sns
-from ebs_snapper_lambda_v2 import utils
+from ebs_snapper_lambda_v2 import utils, mocks
 
 
 @mock_ec2
@@ -56,30 +56,43 @@ def test_region_contains_instances():
 
 
 @mock_ec2
-def test_apply_instances():
-    """Test for method of the same name."""
-    client = boto3.client('ec2', region_name='us-west-2')
-    client.run_instances(ImageId='ami-123abc', MinCount=5, MaxCount=5)
-
-    found_instances = []
-    utils.apply_instances('us-west-2', found_instances.append)
-
-    # ensure .append was called for every instance
-    assert len(found_instances) == 5
-
-
-@mock_ec2
 @mock_sns
 def test_get_topic_arn():
     """Test for method of the same name."""
     topic_name = 'please-dont-exist'
 
     # make an SNS topic
-    client = boto3.client('sns', region_name='us-west-2')
-    response = client.create_topic(Name=topic_name)
-    assert response['ResponseMetadata']['HTTPStatusCode'] == 200
+    mocks.create_sns_topic(topic_name, region_name='us-west-2')
 
     # see if our code can find it!
     found_arn = utils.get_topic_arn(topic_name)
     assert 'us-west-2' in found_arn
     assert topic_name in found_arn
+
+
+def test_convert_configurations_to_boto_filter():
+    """Test for method of the same name"""
+
+    test_input = {
+        "instance-id": "i-abc12345",
+        "tag:key": "tag-value",
+        "tag:Name": "legacy_server_name_*"
+    }
+
+    test_output = [
+        {
+            'Name': 'instance-id',
+            'Values': ['i-abc12345']
+        },
+        {
+            'Name': 'tag:key',
+            'Values': ['tag-value']
+        },
+        {
+            'Name': 'tag:Name',
+            'Values': ['legacy_server_name_*']
+        }
+    ]
+
+    real_output = utils.convert_configurations_to_boto_filter(test_input)
+    assert sorted(real_output) == sorted(test_output)

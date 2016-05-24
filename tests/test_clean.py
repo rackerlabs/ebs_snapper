@@ -2,57 +2,47 @@
 # Copyright 2015-2016 Rackspace US, Inc.
 """Module for testing clean module."""
 
-import boto3
+import json
 from moto import mock_ec2, mock_sns
-from ebs_snapper_lambda_v2 import clean
-from ebs_snapper_lambda_v2 import utils
-
-
-@mock_ec2
-def test_perform_fanout_all_regions():
-    """Test for method of the same name."""
-
-    expected_regions = utils.get_regions()
-
-    # capture what the perform_fanout_all_regions method does using an array
-    fanned_out_results = []
-
-    def append_region(region):
-        """dummy function"""
-        fanned_out_results.append(region)
-        return fanned_out_results
-
-    # fan out, and be sure we touched every region
-    clean.perform_fanout_all_regions(append_region)
-    for r in expected_regions:
-        assert r in fanned_out_results
+from ebs_snapper_lambda_v2 import clean, utils, mocks
 
 
 @mock_ec2
 @mock_sns
-def test_send_fanout_message():
+def test_perform_fanout_all_regions_clean(mocker):
+    """Test for method of the same name."""
+    mocks.create_sns_topic('CleanSnapshotTopic')
+
+    expected_regions = utils.get_regions()
+    expected_sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
+
+    mocker.patch('ebs_snapper_lambda_v2.clean.send_fanout_message')
+
+    # fan out, and be sure we touched every region
+    clean.perform_fanout_all_regions()
+
+    for r in expected_regions:
+        clean.send_fanout_message.assert_any_call(  # pylint: disable=E1103
+            region=r,
+            topic_arn=expected_sns_topic)
+
+
+@mock_ec2
+@mock_sns
+def test_send_fanout_message_clean(mocker):
     """Test for method of the same name."""
 
-    sns_client = boto3.client('sns', region_name='us-west-2')
+    mocks.create_sns_topic('testing-topic')
+    expected_sns_topic = utils.get_topic_arn('testing-topic')
 
-    # make an SNS topic
-    response = sns_client.create_topic(Name='testing-topic')
-    assert response['ResponseMetadata']['HTTPStatusCode'] == 200
-    topic_arn = response['TopicArn']
-
-    # TODO: figure out how to mock:
-    # <bound method SNS.publish of <botocore.client.SNS object at 0x10adc6190>>
-    # message = json.dumps({'region': region})
-    clean.send_fanout_message(region='us-west-2', topic_arn=topic_arn)
-
-
-def test_print_fanout_message():
-    """Test for method of the same name."""
-    # Won't test -- this method literally just calls print()
-    pass
+    mocker.patch('ebs_snapper_lambda_v2.utils.sns_publish')
+    clean.send_fanout_message(region='us-west-2', topic_arn=expected_sns_topic)
+    utils.sns_publish.assert_any_call(  # pylint: disable=E1103
+        TopicArn=expected_sns_topic,
+        Message=json.dumps({'region': 'us-west-2'}))
 
 
 def test_clean_snapshot():
     """Test for method of the same name."""
-    # TBD: needs to be implemented still in snapshot module
+    # TBD: needs to be implemented still in clean module
     pass

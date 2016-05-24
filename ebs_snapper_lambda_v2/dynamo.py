@@ -27,3 +27,19 @@ def fetch_configurations():
         found_configurations[str_item] = json_item
 
     return found_configurations.values()
+
+
+def store_configuration(object_id, aws_account_id, configuration):
+    """Function to store configuration item, for testing"""
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('ebs_snapshot_configuration')
+
+    response = table.put_item(
+        Item={
+            'aws_account_id': aws_account_id,
+            'id': object_id,
+            'configuration': json.dumps(configuration)
+        }
+    )
+
+    return response.get('Attributes', {})

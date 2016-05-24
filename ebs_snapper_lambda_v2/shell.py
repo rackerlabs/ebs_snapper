@@ -70,15 +70,15 @@ def main(arv=None):
 def shell_fanout_snapshot(*args):
     """Print fanout JSON messages, instead of sending them like lambda version."""
     # for every region and every instance, send to this function
-    snapshot.perform_fanout_all_regions(snapshot.print_fanout_message)
-    print('Function shell_fanout_snapshot completed')
+    snapshot.perform_fanout_all_regions()
+    LOG.info('Function shell_fanout_snapshot completed')
 
 
 def shell_fanout_clean(*args):
     """Print fanout JSON messages, instead of sending them like lambda version."""
     # for every region, send to this function
-    clean.perform_fanout_all_regions(clean.print_fanout_message)
-    print('Function shell_fanout_clean completed')
+    clean.perform_fanout_all_regions()
+    LOG.info('Function shell_fanout_clean completed')
 
 
 def shell_snapshot(*args):
@@ -86,9 +86,12 @@ def shell_snapshot(*args):
     message_json = json.loads(args[0].message)
 
     # call the snapshot perform method
-    snapshot.perform_snapshot(message_json['region'], message_json['instance_id'])
+    snapshot.perform_snapshot(
+        message_json['region'],
+        message_json['instance_id'],
+        message_json['settings'])
 
-    print('Function shell_snapshot completed')
+    LOG.info('Function shell_snapshot completed')
 
 
 def shell_clean(*args):
@@ -98,4 +101,4 @@ def shell_clean(*args):
     # call the snapshot cleanup method
     clean.clean_snapshot(message_json['region'])
 
-    print('Function shell_clean completed')
+    LOG.info('Function shell_clean completed')
