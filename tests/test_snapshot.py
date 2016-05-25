@@ -97,7 +97,7 @@ def test_perform_fanout_by_region_snapshot(mocker):
             instance_id=key,
             region=value,
             topic_arn=expected_sns_topic,
-            snapshot_settings=config_data["snapshot"])
+            snapshot_settings=config_data)
 
 
 @mock_ec2

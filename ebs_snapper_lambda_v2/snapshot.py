@@ -38,15 +38,11 @@ def perform_fanout_by_region(region):
     for config in configurations:
 
         # if it's missing the match section, ignore it
-        if 'match' not in config or 'snapshot' not in config:
-            LOG.warn(
-                'Configuration is missing a match/snapshot, will not use it for snapshots: %s',
-                str(config))
+        if not utils.validate_snapshot_settings(config):
             continue
 
         # build a boto3 filter to describe instances with
         configuration_matches = config['match']
-        configuration_snapshot = config['snapshot']
 
         filters = utils.convert_configurations_to_boto_filter(configuration_matches)
 
@@ -61,7 +57,7 @@ def perform_fanout_by_region(region):
         send_message_instances(
             region=region,
             sns_topic=sns_topic,
-            configuration_snapshot=configuration_snapshot,
+            configuration_snapshot=config,
             filters=filters)
 
 
@@ -85,12 +81,12 @@ def send_message_instances(region, sns_topic, configuration_snapshot, filters):
 
 def send_fanout_message(instance_id, region, topic_arn, snapshot_settings):
     """Publish an SNS message to topic_arn that specifies an instance and region to review"""
-    LOG.info('send_fanout_message for region %s, instance %s to %s',
-             region, instance_id, topic_arn)
-
     message = json.dumps({'instance_id': instance_id,
                           'region': region,
                           'settings': snapshot_settings})
+
+    LOG.info('send_fanout_message: %s', message)
+
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
