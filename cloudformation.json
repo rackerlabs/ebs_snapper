@@ -123,7 +123,7 @@
           "S3Key" : "lambda_function.zip"
         },
         "Description" : "snapshot and tags main task",
-        "Handler" : "lambas.lambda_fanout_clean",
+        "Handler" : "lambdas.lambda_fanout_clean",
         "MemorySize" : 256,
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
@@ -250,6 +250,16 @@
                   "Action" : ["SNS:Publish",
                     "SNS:ListTopics"],
                   "Resource" : "arn:aws:sns:*"
+                }, {
+                  "Effect" : "Allow",
+                  "Action" : ["dynamodb:*"],
+                  "Resource" : { "Fn::Join" : [ "", [
+                    "arn:aws:dynamodb:",
+                    { "Ref" : "AWS::Region" },
+                    ":", {"Ref": "AWS::AccountId"},
+                    ":table/",
+                    { "Ref" : "EbsSnapshotConfigurationTable" }
+                  ] ] }
                 }
               ]
             }

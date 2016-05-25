@@ -8,7 +8,7 @@ from datetime import timedelta
 import json
 import logging
 import boto3
-from ebs_snapper_lambda_v2 import utils
+from ebs_snapper_lambda_v2 import utils, dynamo
 
 LOG = logging.getLogger(__name__)
 
@@ -19,15 +19,16 @@ def perform_fanout_all_regions():
     sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
     LOG.info('perform_fanout_all_regions using SNS topic %s', sns_topic)
 
-    regions = utils.get_regions(must_contain_instances=False)
+    regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
         send_fanout_message(region=region, topic_arn=sns_topic)
 
 
 def send_fanout_message(region, topic_arn):
     """Publish an SNS message to topic_arn that specifies a region to review snapshots on"""
-    LOG.info('send_fanout_message for region %s to %s', region, topic_arn)
     message = json.dumps({'region': region})
+    LOG.info('send_fanout_message: %s', message)
+
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
@@ -38,9 +39,13 @@ def clean_snapshot(region):
     owner_ids = utils.get_owner_id()
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
 
+    deleted_count = 0
     delete_on = datetime.date.today()
     for i in range(0, 10):
-        clean_snapshots_tagged(delete_on + timedelta(days=-i), owner_ids, region)
+        deleted_count += clean_snapshots_tagged(delete_on + timedelta(days=-i), owner_ids, region)
+
+    if deleted_count <= 0:
+        LOG.warn('No snapshots were cleaned up for the entire region %s', region)
 
 
 def clean_snapshots_tagged(delete_on, owner_ids, region):
@@ -53,15 +58,43 @@ def clean_snapshots_tagged(delete_on, owner_ids, region):
     LOG.info("ec2.describe_snapshots with filters %s", filters)
     snapshot_response = ec2.describe_snapshots(OwnerIds=owner_ids, Filters=filters)
 
+    deleted_count = 0
     if 'Snapshots' not in snapshot_response or len(snapshot_response['Snapshots']) <= 0:
-        LOG.warn('No snapshots were found using owners=%s, filters=%s',
-                 owner_ids,
-                 filters)
-        return
+        LOG.debug('No snapshots were found using owners=%s, filters=%s',
+                  owner_ids,
+                  filters)
+        return deleted_count
 
-    # TODO: handle minimum setting
-    # minimum_snaps = snapshot_settings['minimum']
+    # fetch our configs, to figure out if we have any retention rules
+    configurations = dynamo.fetch_configurations()
 
     for snap in snapshot_response['Snapshots']:
-        LOG.info('Deleting snapshot %s from %s', snap['SnapshotId'], region)
+        # attempt to identify the instance this applies to, so we can check minimums
+        try:
+            snapshot_volume = snap['VolumeId']
+            volume_instance = utils.get_instance_by_volume(snapshot_volume, region)
+            snapshot_settings = utils.get_snapshot_settings_by_instance(
+                volume_instance, configurations, region)
+
+            # minimum required, current number of snapshots
+            minimum_snaps = snapshot_settings['snapshot']['minimum']
+            no_snaps = utils.count_snapshots(volume_instance, region)
+
+            # if we have less than the minimum, don't delete this one
+            if no_snaps < minimum_snaps:
+                LOG.warn('Not deleting snapshot %s from %s', snap['SnapshotId'], region)
+                LOG.warn('Only %s snapshots exist, below minimum of %s', no_snaps, minimum_snaps)
+                continue
+
+        except:
+            # if we couldn't figure out a minimum of snapshots,
+            # don't clean this up -- these could be orphaned snapshots
+            LOG.warn('Not deleting snapshot %s from %s, no min. snapshot count',
+                     snap['SnapshotId'], region)
+            continue
+
+        LOG.warn('Deleting snapshot %s from %s', snap['SnapshotId'], region)
         utils.delete_snapshot(snap['SnapshotId'], region)
+        deleted_count += 1
+
+    return deleted_count

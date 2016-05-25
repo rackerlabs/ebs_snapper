@@ -11,12 +11,12 @@ from ebs_snapper_lambda_v2 import snapshot, clean
 
 LOG = logging.getLogger(__name__)
 
-# baseline logging for lambda
-logging.basicConfig(level=logging.INFO)
-
 
 def lambda_fanout_snapshot(event, context):
     """Fanout SNS messages to trigger snapshots when called by AWS Lambda."""
+
+    # baseline logging for lambda
+    logging.basicConfig(level=logging.INFO)
 
     # for every region and every instance, send to this function
     snapshot.perform_fanout_all_regions()
@@ -27,6 +27,9 @@ def lambda_fanout_snapshot(event, context):
 def lambda_fanout_clean(event, context):
     """Fanout SNS messages to cleanup snapshots when called by AWS Lambda."""
 
+    # baseline logging for lambda
+    logging.basicConfig(level=logging.INFO)
+
     # for every region, send to this function
     clean.perform_fanout_all_regions()
 
@@ -35,6 +38,9 @@ def lambda_fanout_clean(event, context):
 
 def lambda_snapshot(event, context):
     """Snapshot a single instance when called by AWS Lambda."""
+
+    # baseline logging for lambda
+    logging.basicConfig(level=logging.INFO)
 
     records = event.get('Records')
     for record in records:

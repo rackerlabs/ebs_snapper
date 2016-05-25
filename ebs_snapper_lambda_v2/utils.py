@@ -100,6 +100,27 @@ def parse_snapshot_settings(snapshot_settings):
     return retention, frequency
 
 
+def validate_snapshot_settings(snapshot_settings):
+    """Validate snapshot settings JSON"""
+    if 'match' not in snapshot_settings or 'snapshot' not in snapshot_settings:
+        LOG.warn(
+            'Configuration is missing a match/snapshot, will not use it for snapshots: %s',
+            str(snapshot_settings))
+        return False
+
+    # validate keys are present
+    expected_keys = ['retention', 'minimum', 'frequency']
+    for k in expected_keys:
+        if k not in snapshot_settings['snapshot']:
+            LOG.warn(
+                'Configuration is missing %s, will not use it for snapshots: %s',
+                k,
+                str(snapshot_settings))
+            return False
+
+    return True
+
+
 def get_instance(instance_id, region):
     """find and return the data about a single instance"""
     ec2 = boto3.client('ec2', region_name=region)
@@ -169,7 +190,7 @@ def build_snapshot_paginator(volume_id, region):
 def snapshot_and_tag(volume_id, delete_on, region):
     """Create snapshot and retention tag"""
 
-    LOG.info('Creating snapshot in %s of volume %s, valid until %s',
+    LOG.warn('Creating snapshot in %s of volume %s, valid until %s',
              region, volume_id, delete_on)
 
     ec2 = boto3.client('ec2', region_name=region)
@@ -194,3 +215,45 @@ def get_volumes(instance_id, region):
     block_devices = instance_details.get('BlockDeviceMappings', [])
 
     return [bd['Ebs']['VolumeId'] for bd in block_devices]
+
+
+def get_instance_by_volume(volume_id, region):
+    """Get instance from volume id"""
+    ec2 = boto3.client('ec2', region_name=region)
+
+    try:
+        found_volumes = ec2.describe_volumes(VolumeIds=[volume_id])
+        for volume in found_volumes['Volumes']:
+            for attachment in volume['Attachments']:
+                return attachment['InstanceId']
+    except:
+        LOG.warn('Failed to find an instance in %s for volume %s',
+                 region, volume_id)
+
+    return None
+
+
+def get_snapshot_settings_by_instance(instance_id, configurations, region):
+    """Given an instance, find the snapshot config that applies"""
+
+    client = boto3.client('ec2', region_name=region)
+    # configurations = dynamo.fetch_configurations()
+    for config in configurations:
+        if not validate_snapshot_settings(config):
+            continue
+
+        # build a boto3 filter to describe instances with
+        configuration_matches = config['match']
+
+        filters = convert_configurations_to_boto_filter(configuration_matches)
+        # if we ended up with no boto3 filters, we bail so we don't snapshot everything
+        if len(filters) <= 0:
+            LOG.warn('Could not convert configuration match to a filter: %s',
+                     configuration_matches)
+            continue
+
+        instances = client.describe_instances(Filters=filters)
+        for reservation in instances.get('Reservations', []):
+            for instance in reservation.get('Instances', []):
+                if instance['InstanceId'] == instance_id:
+                    return config
