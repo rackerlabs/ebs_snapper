@@ -11,14 +11,21 @@ from pytimeparse.timeparse import timeparse
 LOG = logging.getLogger(__name__)
 
 
-def get_owner_id():
+def get_owner_id(region=None):
     """Get overall owner account id by finding an AWS instance"""
     LOG.debug('get_owner_id')
-    regions = get_regions(must_contain_instances=True)
+    if region is not None:
+        regions = [region]
+    else:
+        regions = get_regions(must_contain_instances=True)
+
+    owners = []
     for region in regions:
         client = boto3.client('ec2', region_name=region)
         instances = client.describe_instances()
-        return list(set([x['OwnerId'] for x in instances['Reservations']]))
+        owners.extend([x['OwnerId'] for x in instances['Reservations']])
+
+    return list(set(owners))
 
 
 def get_regions(must_contain_instances=False):
@@ -257,3 +264,6 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
             for instance in reservation.get('Instances', []):
                 if instance['InstanceId'] == instance_id:
                     return config
+
+    # No settings were found
+    return None

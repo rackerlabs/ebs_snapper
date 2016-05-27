@@ -50,11 +50,27 @@ def test_send_fanout_message_clean(mocker):
 
 
 @mock_ec2
+@mock_dynamodb2
 def test_clean_snapshot(mocker):
     """Test for method of the same name."""
     # def clean_snapshot(region):
     region = 'us-east-1'
+
+    # need an instance to get figure out an owner
+    instance_id = mocks.create_instances(region, count=1)[0]
     owner_ids = utils.get_owner_id()
+
+    # setup the min # snaps for the instance
+    config_data = {
+        "match": {"instance-id": instance_id},
+        "snapshot": {
+            "retention": "6 days", "minimum": 0, "frequency": "13 hours"
+        }
+    }
+
+    # put it in the table, be sure it succeeded
+    mocks.create_dynamodb()
+    dynamo.store_configuration('foo', '111122223333', config_data)
 
     # mock the over-arching method that just loops over the last 10 days
     mocker.patch('ebs_snapper_lambda_v2.clean.clean_snapshots_tagged')
@@ -66,7 +82,8 @@ def test_clean_snapshot(mocker):
         clean.clean_snapshots_tagged.assert_any_call(  # pylint: disable=E1103
             delete_on + timedelta(days=-i),
             owner_ids,
-            region)
+            region,
+            [config_data])
 
 
 @mock_ec2
@@ -102,7 +119,7 @@ def test_clean_snapshots_tagged(mocker):
     snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
 
     mocker.patch('ebs_snapper_lambda_v2.utils.delete_snapshot')
-    clean.clean_snapshots_tagged(now, owner_ids, region)
+    clean.clean_snapshots_tagged(now, owner_ids, region, [config_data])
 
     # ensure we deleted this snapshot if it was ready to die today
     utils.delete_snapshot.assert_any_call(snapshot_id, region)  # pylint: disable=E1103
@@ -111,5 +128,5 @@ def test_clean_snapshots_tagged(mocker):
     utils.delete_snapshot.reset_mock()  # pylint: disable=E1103
     config_data['snapshot']['minimum'] = 5
     dynamo.store_configuration('foo', '111122223333', config_data)
-    clean.clean_snapshots_tagged(now, owner_ids, region)
+    clean.clean_snapshots_tagged(now, owner_ids, region, [config_data])
     utils.delete_snapshot.assert_not_called()  # pylint: disable=E1103
