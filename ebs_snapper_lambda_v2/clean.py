@@ -36,19 +36,26 @@ def clean_snapshot(region):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
 
-    owner_ids = utils.get_owner_id()
+    owner_ids = utils.get_owner_id(region)
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
+
+    LOG.info('Fetching all possible configuration rules from DynamoDB')
+    configurations = dynamo.fetch_configurations()
 
     deleted_count = 0
     delete_on = datetime.date.today()
     for i in range(0, 10):
-        deleted_count += clean_snapshots_tagged(delete_on + timedelta(days=-i), owner_ids, region)
+        deleted_count += clean_snapshots_tagged(
+            delete_on + timedelta(days=-i),
+            owner_ids,
+            region,
+            configurations)
 
     if deleted_count <= 0:
         LOG.warn('No snapshots were cleaned up for the entire region %s', region)
 
 
-def clean_snapshots_tagged(delete_on, owner_ids, region):
+def clean_snapshots_tagged(delete_on, owner_ids, region, configurations, default_min_snaps=5):
     """Remove snapshots where DeleteOn tag is delete_on datetime object"""
     ec2 = boto3.client('ec2', region_name=region)
     filters = [
@@ -57,6 +64,7 @@ def clean_snapshots_tagged(delete_on, owner_ids, region):
     ]
     LOG.info("ec2.describe_snapshots with filters %s", filters)
     snapshot_response = ec2.describe_snapshots(OwnerIds=owner_ids, Filters=filters)
+    LOG.info("ec2.describe_snapshots fin")
 
     deleted_count = 0
     if 'Snapshots' not in snapshot_response or len(snapshot_response['Snapshots']) <= 0:
@@ -65,20 +73,22 @@ def clean_snapshots_tagged(delete_on, owner_ids, region):
                   filters)
         return deleted_count
 
-    # fetch our configs, to figure out if we have any retention rules
-    configurations = dynamo.fetch_configurations()
-
     for snap in snapshot_response['Snapshots']:
         # attempt to identify the instance this applies to, so we can check minimums
         try:
             snapshot_volume = snap['VolumeId']
             volume_instance = utils.get_instance_by_volume(snapshot_volume, region)
-            snapshot_settings = utils.get_snapshot_settings_by_instance(
-                volume_instance, configurations, region)
 
-            # minimum required, current number of snapshots
-            minimum_snaps = snapshot_settings['snapshot']['minimum']
-            no_snaps = utils.count_snapshots(volume_instance, region)
+            # minimum required
+            if volume_instance is None:
+                minimum_snaps = default_min_snaps
+            else:
+                snapshot_settings = utils.get_snapshot_settings_by_instance(
+                    volume_instance, configurations, region)
+                minimum_snaps = snapshot_settings['snapshot']['minimum']
+
+            # current number of snapshots
+            no_snaps = utils.count_snapshots(snapshot_volume, region)
 
             # if we have less than the minimum, don't delete this one
             if no_snaps < minimum_snaps:
@@ -89,7 +99,7 @@ def clean_snapshots_tagged(delete_on, owner_ids, region):
         except:
             # if we couldn't figure out a minimum of snapshots,
             # don't clean this up -- these could be orphaned snapshots
-            LOG.warn('Not deleting snapshot %s from %s, no min. snapshot count',
+            LOG.warn('Not deleting snapshot %s from %s, error encountered',
                      snap['SnapshotId'], region)
             continue
 
