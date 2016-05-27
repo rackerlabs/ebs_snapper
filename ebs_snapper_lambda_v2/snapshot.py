@@ -129,4 +129,5 @@ def perform_snapshot(region, instance, snapshot_settings):
         # perform actual snapshot and create tag: retention + now() as a Y-M-D
         delete_on_dt = now + retention
         delete_on = delete_on_dt.strftime('%Y-%m-%d')
-        utils.snapshot_and_tag(volume_id, delete_on, region)
+        expected_tags = utils.calculate_relevant_tags(instance, volume_id, region)
+        utils.snapshot_and_tag(volume_id, delete_on, region, additional_tags=expected_tags)

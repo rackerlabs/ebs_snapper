@@ -9,6 +9,15 @@ import boto3
 from pytimeparse.timeparse import timeparse
 
 LOG = logging.getLogger(__name__)
+FAWS_TAGS = [
+    "Name",
+    "BusinessUnit", "Group",
+    "Department", "CostCenter",
+    "Application", "Environment", "Project",
+    "Owner", "Service",
+    "Cluster", "Role", "Customer", "Version",
+    "Billing1", "Billing2", "Billing3", "Billing4", "Billing5"
+]
 
 
 def get_owner_id(region=None):
@@ -194,11 +203,15 @@ def build_snapshot_paginator(volume_id, region):
     return paginator.paginate(**operation_parameters)
 
 
-def snapshot_and_tag(volume_id, delete_on, region):
+def snapshot_and_tag(volume_id, delete_on, region, additional_tags=None):
     """Create snapshot and retention tag"""
 
     LOG.warn('Creating snapshot in %s of volume %s, valid until %s',
              region, volume_id, delete_on)
+
+    full_tags = [{'Key': 'DeleteOn', 'Value': delete_on}]
+    if additional_tags is not None:
+        full_tags.extend(additional_tags)
 
     ec2 = boto3.client('ec2', region_name=region)
 
@@ -206,7 +219,7 @@ def snapshot_and_tag(volume_id, delete_on, region):
 
     ec2.create_tags(
         Resources=[snapshot['SnapshotId']],
-        Tags=[{'Key': 'DeleteOn', 'Value': delete_on}]
+        Tags=full_tags
     )
 
 
@@ -222,6 +235,20 @@ def get_volumes(instance_id, region):
     block_devices = instance_details.get('BlockDeviceMappings', [])
 
     return [bd['Ebs']['VolumeId'] for bd in block_devices]
+
+
+def get_volume(volume_id, region):
+    """find and return the data about a single instance"""
+    ec2 = boto3.client('ec2', region_name=region)
+    volume_data = ec2.describe_volumes(VolumeIds=[volume_id])
+    if 'Volumes' not in volume_data:
+        raise Exception('Response missing volumes %s', volume_data)
+
+    volumes = volume_data['Volumes']
+    if not len(volumes) == 1:
+        raise Exception('Found too many volumes for this id %s', volumes)
+
+    return volumes[0]
 
 
 def get_instance_by_volume(volume_id, region):
@@ -267,3 +294,42 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
 
     # No settings were found
     return None
+
+
+def calculate_relevant_tags(instance_id, volume_id, region):
+    """Copy FAWS tags from instance to volume to snapshot, per product guide"""
+
+    calculated_tags = {}
+
+    # first figure out any instance tags
+    if instance_id is not None:
+        instance_data = get_instance(instance_id, region)
+        if instance_data is not None:
+            instance_tags = instance_data['Tags']
+
+            # add relevant ones to the list
+            for tag_ds in instance_tags:
+                tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
+                if tag_name in FAWS_TAGS:
+                    calculated_tags[tag_name] = tag_value
+
+    # overwrite tag values from instances with volume tags/values
+    if volume_id is not None:
+        volume_data = get_volume(volume_id, region)
+        if volume_data is not None:
+            volume_tags = volume_data['Tags']
+
+            # add relevant ones to the list
+            for tag_ds in volume_tags:
+                tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
+                if tag_name in FAWS_TAGS:
+                    calculated_tags[tag_name] = tag_value
+
+    returned_tags = []
+    for n, v in calculated_tags.iteritems():
+        returned_tags.append({
+            'Key': n,
+            'Value': v
+        })
+
+    return returned_tags

@@ -124,6 +124,24 @@ def test_perform_snapshot(mocker):
     delete_on_dt = now + ret
     delete_on = delete_on_dt.strftime('%Y-%m-%d')
 
+    # apply some tags
+    client = boto3.client('ec2', region_name=region)
+    instance_tags = [
+        {'Key': 'Name', 'Value': 'Foo'},
+        {'Key': 'Service', 'Value': 'Bar'},
+    ]
+    client.create_tags(DryRun=False, Resources=[instance_id], Tags=instance_tags)
+
+    # override one of the tags
+    volume_tags = [{'Key': 'Service', 'Value': 'Baz'}]
+    client.create_tags(DryRun=False, Resources=[volume_id], Tags=volume_tags)
+
+    # when combined, we expect tags to be this.
+    tags = [
+        {'Key': 'Name', 'Value': 'Foo'},
+        {'Key': 'Service', 'Value': 'Baz'},
+    ]
+
     # patch the final method that takes a snapshot
     mocker.patch('ebs_snapper_lambda_v2.utils.snapshot_and_tag')
 
@@ -134,7 +152,8 @@ def test_perform_snapshot(mocker):
     utils.snapshot_and_tag.assert_any_call(  # pylint: disable=E1103
         volume_id,
         delete_on,
-        region)
+        region,
+        additional_tags=tags)
 
 
 @mock_ec2
