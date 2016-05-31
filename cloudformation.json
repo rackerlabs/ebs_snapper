@@ -15,7 +15,7 @@
     "CreateScheduleExpression" : {
       "Description" : "How often the function should run that checks for snapshots that should be taken.",
       "Type": "String",
-      "Default" : "rate(12 hours)"
+      "Default" : "rate(1 hour)"
     },
     "CleanScheduleExpression" : {
       "Description" : "How often the function should run that checks for snapshots that should be cleaned up.",
@@ -51,7 +51,7 @@
     "FanoutCreateSnapshotAlarm" : {
       "Type" : "AWS::CloudWatch::Alarm",
       "Properties" : {
-        "AlarmDescription" : "Alarm for failed snapshot tags creation",
+        "AlarmDescription" : "Alarm for failed snapshot fanout",
         "AlarmActions" : [{
             "Fn::Join" : [":", ["arn", "aws", "sns", {
                   "Ref" : "WatchdogRegion"
@@ -64,7 +64,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "1",
-        "Period" : "60",
+        "Period" : "3660",
         "Statistic" : "Sum",
         "Threshold" : "1",
         "Dimensions" : [{
@@ -92,7 +92,7 @@
     "FanoutCleanSnapshotAlarm" : {
       "Type" : "AWS::CloudWatch::Alarm",
       "Properties" : {
-        "AlarmDescription" : "Alarm for failed snapshot tags cleanup",
+        "AlarmDescription" : "Alarm for failed cleanup fanout",
         "AlarmActions" : [{
             "Fn::Join" : [":", ["arn", "aws", "sns", {
                   "Ref" : "WatchdogRegion"
@@ -105,7 +105,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "1",
-        "Period" : "60",
+        "Period" : "86400",
         "Statistic" : "Sum",
         "Threshold" : "1",
         "Dimensions" : [{
@@ -133,7 +133,7 @@
     "CreateSnapshotAlarm" : {
       "Type" : "AWS::CloudWatch::Alarm",
       "Properties" : {
-        "AlarmDescription" : "Alarm for failed snapshot tags creation",
+        "AlarmDescription" : "Alarm for failed snapshot creation",
         "AlarmActions" : [{
             "Fn::Join" : [":", ["arn", "aws", "sns", {
                   "Ref" : "WatchdogRegion"
@@ -146,7 +146,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "1",
-        "Period" : "60",
+        "Period" : "3660",
         "Statistic" : "Sum",
         "Threshold" : "1",
         "Dimensions" : [{
@@ -174,7 +174,7 @@
     "CleanSnapshotAlarm" : {
       "Type" : "AWS::CloudWatch::Alarm",
       "Properties" : {
-        "AlarmDescription" : "Alarm for failed snapshot tags creation",
+        "AlarmDescription" : "Alarm for failed snapshot cleanup",
         "AlarmActions" : [{
             "Fn::Join" : [":", ["arn", "aws", "sns", {
                   "Ref" : "WatchdogRegion"
@@ -187,7 +187,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "1",
-        "Period" : "60",
+        "Period" : "3660",
         "Statistic" : "Sum",
         "Threshold" : "1",
         "Dimensions" : [{
