@@ -304,7 +304,7 @@ def calculate_relevant_tags(instance_id, volume_id, region):
     # first figure out any instance tags
     if instance_id is not None:
         instance_data = get_instance(instance_id, region)
-        if instance_data is not None:
+        if instance_data is not None and 'Tags' in instance_data:
             instance_tags = instance_data['Tags']
 
             # add relevant ones to the list
@@ -316,7 +316,7 @@ def calculate_relevant_tags(instance_id, volume_id, region):
     # overwrite tag values from instances with volume tags/values
     if volume_id is not None:
         volume_data = get_volume(volume_id, region)
-        if volume_data is not None:
+        if volume_data is not None and 'Tags' in volume_data:
             volume_tags = volume_data['Tags']
 
             # add relevant ones to the list
