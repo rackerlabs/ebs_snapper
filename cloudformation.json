@@ -15,7 +15,7 @@
     "CreateScheduleExpression" : {
       "Description" : "How often the function should run that checks for snapshots that should be taken.",
       "Type": "String",
-      "Default" : "rate(1 hour)"
+      "Default" : "rate(15 minutes)"
     },
     "CleanScheduleExpression" : {
       "Description" : "How often the function should run that checks for snapshots that should be cleaned up.",
