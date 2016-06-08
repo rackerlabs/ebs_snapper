@@ -21,7 +21,8 @@ setup(
     install_requires=[
         'botocore',
         'boto3',
-        'logging'
+        'logging',
+        'pytimeparse'
     ],
     tests_require=[
         'moto',
@@ -29,6 +30,7 @@ setup(
         'pylint',
         'tox',
         'tox-pyenv',
-        'pytest'
+        'pytest',
+        'pytest-mock'
     ]
 )
