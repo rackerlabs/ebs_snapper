@@ -12,7 +12,7 @@ from ebs_snapper_lambda_v2 import dynamo, mocks
 
 @mock_ec2
 @mock_dynamodb2
-def test_fetch_missing_configurations():
+def test_list_missing_configurations():
     """Test for method of the same name."""
 
     # region for our tests
@@ -28,13 +28,13 @@ def test_fetch_missing_configurations():
         table = dynamodb.Table('ebs_snapshot_configuration')
         assert table.table_status == "ACTIVE"
 
-        dynamo.fetch_configurations()
+        dynamo.list_configurations()
 
 
 @mock_ec2
 @mock_dynamodb2
-def test_fetch_configurations():
-    """Test for method of the same name."""
+def test__configurations():
+    """Test for method for get, fetch, delete."""
 
     # region for our tests
     region = 'us-east-1'
@@ -69,5 +69,21 @@ def test_fetch_configurations():
     response = dynamo.store_configuration('foo', '111122223333', config_data)
     assert response != {}
 
-    fetched_configurations = dynamo.fetch_configurations()
+    # now list everything, be sure it was present
+    fetched_configurations = dynamo.list_configurations()
     assert fetched_configurations == [config_data]
+
+    # now get that specific one
+    specific_config = dynamo.get_configuration('foo', '111122223333')
+    assert specific_config == config_data
+
+    # be sure another get for invalid item returns none
+    missing_config = dynamo.get_configuration('abc', '111122223333')
+    assert missing_config is None
+
+    # now delete it and confirm both list and get return nothing
+    dynamo.delete_configuration('foo', '111122223333')
+    specific_config = dynamo.get_configuration('foo', '111122223333')
+    assert specific_config is None
+    fetched_configurations = dynamo.list_configurations()
+    assert fetched_configurations == []
