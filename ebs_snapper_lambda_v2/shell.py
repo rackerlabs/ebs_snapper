@@ -74,9 +74,9 @@ def main(arv=None):
     action_group.set_defaults(conf_action=None)
 
     # configure parameters
-    parser_configure.add_argument('-a', '--aws_account_id', nargs='*', default=None)
+    parser_configure.add_argument('-a', '--aws_account_id', nargs='?', default=None)
     parser_configure.add_argument('object_id')
-    parser_configure.add_argument('configuration_json', nargs='*', default=None)
+    parser_configure.add_argument('configuration_json', nargs='?', default=None)
 
     # do all the things!
 
@@ -136,9 +136,12 @@ def shell_configure(*args):
     if args[0].aws_account_id is None:
         aws_account_id = utils.get_owner_id()[0]
     else:
-        aws_account_id = args[0].aws_account_id[0]
+        aws_account_id = args[0].aws_account_id
+    LOG.debug("Account: %s", aws_account_id)
 
     object_id = args[0].object_id
+    LOG.debug("Object key: %s", object_id)
+
     action = args[0].conf_action
 
     if action == 'get':
@@ -152,6 +155,7 @@ def shell_configure(*args):
             print(single_result)
     elif action == 'set':
         config = json.loads(args[0].configuration_json[0])
+        LOG.debug("Configuration: %s", config)
         dynamo.store_configuration(object_id, aws_account_id, config)
         print('Saved {} to key {} under account {}'
               .format(json.dumps(config), object_id, aws_account_id))
