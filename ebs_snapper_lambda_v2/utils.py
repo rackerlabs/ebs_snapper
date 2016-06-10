@@ -271,7 +271,6 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
     """Given an instance, find the snapshot config that applies"""
 
     client = boto3.client('ec2', region_name=region)
-    # configurations = dynamo.fetch_configurations()
     for config in configurations:
         if not validate_snapshot_settings(config):
             continue

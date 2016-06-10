@@ -40,7 +40,7 @@ def clean_snapshot(region):
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
 
     LOG.info('Fetching all possible configuration rules from DynamoDB')
-    configurations = dynamo.fetch_configurations()
+    configurations = dynamo.list_configurations()
 
     deleted_count = 0
     delete_on = datetime.date.today()
