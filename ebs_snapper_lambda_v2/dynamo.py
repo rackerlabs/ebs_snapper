@@ -9,10 +9,31 @@ from boto3.dynamodb.conditions import Key
 from ebs_snapper_lambda_v2 import utils
 
 
-def list_configurations():
+def list_ids(aws_account_id=None):
     """Retrieve configuration from DynamoDB and return array of dictionary objects"""
     found_configurations = {}
-    aws_account_id = utils.get_owner_id()[0]
+    if aws_account_id is None:
+        aws_account_id = utils.get_owner_id()[0]
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table('ebs_snapshot_configuration')
+
+    results = table.query(
+        KeyConditionExpression=Key('aws_account_id').eq(aws_account_id)
+    )
+
+    for item in results['Items']:
+        str_item = item['configuration']
+        found_configurations[str_item] = item['id']
+
+    return found_configurations.values()
+
+
+def list_configurations(aws_account_id=None):
+    """Retrieve configuration from DynamoDB and return array of dictionary objects"""
+    found_configurations = {}
+    if aws_account_id is None:
+        aws_account_id = utils.get_owner_id()[0]
 
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('ebs_snapshot_configuration')
