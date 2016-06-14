@@ -62,6 +62,9 @@ def main(arv=None):
 
     # what action for configure?
     action_group = parser_configure.add_mutually_exclusive_group(required=True)
+    action_group.add_argument('-l', '--list', dest='conf_action', action='store_const',
+                              const='list',
+                              help="List configuration items")
     action_group.add_argument('-g', '--get', dest='conf_action', action='store_const',
                               const='get',
                               help="Get configuration item")
@@ -75,7 +78,7 @@ def main(arv=None):
 
     # configure parameters
     parser_configure.add_argument('-a', '--aws_account_id', nargs='?', default=None)
-    parser_configure.add_argument('object_id')
+    parser_configure.add_argument('object_id', nargs='?', default=None)
     parser_configure.add_argument('configuration_json', nargs='?', default=None)
 
     # do all the things!
@@ -140,25 +143,44 @@ def shell_configure(*args):
     LOG.debug("Account: %s", aws_account_id)
 
     object_id = args[0].object_id
-    LOG.debug("Object key: %s", object_id)
-
     action = args[0].conf_action
 
-    if action == 'get':
+    if action == 'list':
+        LOG.info('Listing all object keys')
+        list_results = dynamo.list_ids(
+            aws_account_id=aws_account_id)
+        if list_results is None or len(list_results) == 0:
+            print('No configurations found')
+        else:
+            print("aws_account_id,id")
+            for r in list_results:
+                print("{},{}".format(aws_account_id, r))
+    elif action == 'get':
+        if object_id is None:
+            raise Exception('must provide an object key id')
+        else:
+            LOG.debug("Object key: %s", object_id)
+
         LOG.info('Retrieving %s', args[0])
+
         single_result = dynamo.get_configuration(
             object_id=object_id,
             aws_account_id=aws_account_id)
         if single_result is None:
             print('No configuration found')
         else:
-            print(single_result)
+            print(json.dumps(single_result))
     elif action == 'set':
-        config = json.loads(args[0].configuration_json[0])
+        if object_id is None:
+            raise Exception('must provide an object key id')
+        else:
+            LOG.debug("Object key: %s", object_id)
+
+        config = json.loads(args[0].configuration_json)
         LOG.debug("Configuration: %s", config)
         dynamo.store_configuration(object_id, aws_account_id, config)
-        print('Saved {} to key {} under account {}'
-              .format(json.dumps(config), object_id, aws_account_id))
+        print('Saved to key {} under account {}'
+              .format(object_id, aws_account_id))
     elif action == 'del':
         print(dynamo.delete_configuration(
             object_id=object_id,

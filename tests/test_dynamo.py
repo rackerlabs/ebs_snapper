@@ -81,6 +81,10 @@ def test__configurations():
     missing_config = dynamo.get_configuration('abc', '111122223333')
     assert missing_config is None
 
+    # be sure it returns in a list
+    fetched_configurations = dynamo.list_ids()
+    assert 'foo' in fetched_configurations
+
     # now delete it and confirm both list and get return nothing
     dynamo.delete_configuration('foo', '111122223333')
     specific_config = dynamo.get_configuration('foo', '111122223333')
