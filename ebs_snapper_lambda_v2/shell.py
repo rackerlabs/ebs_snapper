@@ -152,7 +152,9 @@ def shell_configure(*args):
         if list_results is None or len(list_results) == 0:
             print('No configurations found')
         else:
-            print(list_results)
+            print("aws_account_id,id")
+            for r in list_results:
+                print("{},{}".format(aws_account_id, r))
     elif action == 'get':
         if object_id is None:
             raise Exception('must provide an object key id')
@@ -167,7 +169,7 @@ def shell_configure(*args):
         if single_result is None:
             print('No configuration found')
         else:
-            print(single_result)
+            print(json.dumps(single_result))
     elif action == 'set':
         if object_id is None:
             raise Exception('must provide an object key id')
@@ -177,8 +179,8 @@ def shell_configure(*args):
         config = json.loads(args[0].configuration_json)
         LOG.debug("Configuration: %s", config)
         dynamo.store_configuration(object_id, aws_account_id, config)
-        print('Saved {} to key {} under account {}'
-              .format(json.dumps(config), object_id, aws_account_id))
+        print('Saved to key {} under account {}'
+              .format(object_id, aws_account_id))
     elif action == 'del':
         print(dynamo.delete_configuration(
             object_id=object_id,
