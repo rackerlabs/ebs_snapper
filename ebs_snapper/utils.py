@@ -208,7 +208,6 @@ def snapshot_and_tag(volume_id, delete_on, region, additional_tags=None):
 
     LOG.warn('Creating snapshot in %s of volume %s, valid until %s',
              region, volume_id, delete_on)
-    print(volume_id, delete_on, region, additional_tags)
 
     full_tags = [{'Key': 'DeleteOn', 'Value': delete_on}]
     if additional_tags is not None:
