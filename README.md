@@ -7,13 +7,19 @@ Next generation EBS snapshots using Lambda
 - [Design](DESIGN.md)
 - [Testing](TESTING.md)
 
-## Instructions for using this software
+## Installing this software
 
-1. Build an archive of this package using [lambda-uploader](http://github.com/rackerlabs/lambda-uploader)
-1. Create an S3 bucket and upload the archive to the S3 bucket
-1. - OR Alternatively to the steps above, use the [upload.sh](upload.sh) to deploy to S3
+This software comes with a script [upload.sh](/upload.sh), that performs the following steps. If you need to manually install this software, you may follow these steps or read along in `upload.sh`.
+
+1. Create an S3 bucket in "US General" / "us-east-1" and name it `ebs-snapper-<FAWS_ACCOUNT_ID>`
+1. Run lambda-uploader to build a lambda_function.zip file:
+```
+lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .
+```
+1. Upload `cloudformation.json` and `lambda_function.zip` to the S3 bucket you created.
 1. Create a stack using the [CloudFormation template](cloudformation.json)
-1. Configure some EBS snapshots by placing configuration JSON into DynamoDB (or use the CLI, read on...)
+1. Publish new versions of the four lambda functions from the template in the previous step. Make sure the description contains only the version of `ebs-snapper` that was uploaded.
+
 
 ## Configuring this software
 1. Configuration stanzas live in DynamoDB, and use a compound key `id, aws_account_id`. `id` is a completely arbitrary identifier for each configuration element; `aws_account_id` is the numerical account id that owns EC2 instances in this account.
