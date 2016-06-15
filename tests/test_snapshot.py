@@ -6,8 +6,8 @@ import datetime
 import dateutil
 import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2
-from ebs_snapper_lambda_v2 import snapshot, dynamo, utils
-from ebs_snapper_lambda_v2 import mocks
+from ebs_snapper import snapshot, dynamo, utils
+from ebs_snapper import mocks
 
 
 @mock_ec2
@@ -44,7 +44,7 @@ def test_perform_fanout_all_regions_snapshot(mocker):
     dynamo.store_configuration('some_unique_id', '111122223333', config_data)
 
     # patch the final message sender method
-    mocker.patch('ebs_snapper_lambda_v2.snapshot.perform_fanout_by_region')
+    mocker.patch('ebs_snapper.snapshot.perform_fanout_by_region')
     snapshot.perform_fanout_all_regions()
 
     # fan out, and be sure we touched every instance we created before
@@ -87,7 +87,7 @@ def test_perform_fanout_by_region_snapshot(mocker):
     dynamo.store_configuration('some_unique_id', '111122223333', config_data)
 
     # patch the final message sender method
-    mocker.patch('ebs_snapper_lambda_v2.snapshot.send_fanout_message')
+    mocker.patch('ebs_snapper.snapshot.send_fanout_message')
 
     # fan out, and be sure we touched every instance we created before
     snapshot.perform_fanout_all_regions()
@@ -143,7 +143,7 @@ def test_perform_snapshot(mocker):
     ]
 
     # patch the final method that takes a snapshot
-    mocker.patch('ebs_snapper_lambda_v2.utils.snapshot_and_tag')
+    mocker.patch('ebs_snapper.utils.snapshot_and_tag')
 
     # since there are no snapshots, we should expect this to trigger one
     snapshot.perform_snapshot(region, instance_id, snapshot_settings)
@@ -184,7 +184,7 @@ def test_perform_snapshot_skipped(mocker):
     utils.snapshot_and_tag(volume_id, delete_on, region)
 
     # patch the final method that takes a snapshot
-    mocker.patch('ebs_snapper_lambda_v2.utils.snapshot_and_tag')
+    mocker.patch('ebs_snapper.utils.snapshot_and_tag')
 
     # since there are no snapshots, we should expect this to trigger one
     snapshot.perform_snapshot(region, instance_id, snapshot_settings)

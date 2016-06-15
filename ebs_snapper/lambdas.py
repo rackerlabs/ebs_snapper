@@ -7,7 +7,7 @@ from __future__ import print_function
 import json
 import logging
 
-from ebs_snapper_lambda_v2 import snapshot, clean
+from ebs_snapper import snapshot, clean
 
 LOG = logging.getLogger(__name__)
 

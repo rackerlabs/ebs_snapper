@@ -6,7 +6,7 @@ import datetime
 import dateutil
 import boto3
 from moto import mock_ec2, mock_sns
-from ebs_snapper_lambda_v2 import utils, mocks
+from ebs_snapper import utils, mocks
 
 
 @mock_ec2

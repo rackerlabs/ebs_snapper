@@ -5,7 +5,7 @@ eval "$(faws -r 979062 env -a 386913580367)"
 
 echo "Building lambda zip file"
 rm -rf *.zip
-lambda-uploader --no-upload -r requirements.txt -x ebs_snapper_lambda_v2/lambdas.py .
+lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .
 
 echo "Uploading to staging S3 bucket"
 FILES="cloudformation.json lambda_function.zip"

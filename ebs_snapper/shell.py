@@ -10,8 +10,8 @@ import traceback
 import argparse
 import json
 
-import ebs_snapper_lambda_v2
-from ebs_snapper_lambda_v2 import snapshot, clean, dynamo, utils
+import ebs_snapper
+from ebs_snapper import snapshot, clean, dynamo, utils
 
 LOG = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def main(arv=None):
         raise RuntimeError('ebs-snapper requires Python 2.7')
 
     parser = argparse.ArgumentParser(
-        version=('version %s' % ebs_snapper_lambda_v2.__version__),
+        version=('version %s' % ebs_snapper.__version__),
         description='Configure, cleanup, or take scheduled EBS volume snapshots')
 
     verbose = parser.add_mutually_exclusive_group()

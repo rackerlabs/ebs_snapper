@@ -6,7 +6,7 @@ from __future__ import print_function
 import json
 import boto3
 from boto3.dynamodb.conditions import Key
-from ebs_snapper_lambda_v2 import utils
+from ebs_snapper import utils
 
 
 def list_ids(aws_account_id=None):

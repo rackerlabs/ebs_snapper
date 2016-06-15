@@ -7,7 +7,7 @@ import datetime
 from datetime import timedelta
 import dateutil
 from moto import mock_ec2, mock_sns, mock_dynamodb2
-from ebs_snapper_lambda_v2 import clean, utils, mocks, dynamo
+from ebs_snapper import clean, utils, mocks, dynamo
 
 
 @mock_ec2
@@ -23,7 +23,7 @@ def test_perform_fanout_all_regions_clean(mocker):
         mocks.create_instances(region=r)
     expected_sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
 
-    mocker.patch('ebs_snapper_lambda_v2.clean.send_fanout_message')
+    mocker.patch('ebs_snapper.clean.send_fanout_message')
 
     # fan out, and be sure we touched every region
     clean.perform_fanout_all_regions()
@@ -42,7 +42,7 @@ def test_send_fanout_message_clean(mocker):
     mocks.create_sns_topic('testing-topic')
     expected_sns_topic = utils.get_topic_arn('testing-topic')
 
-    mocker.patch('ebs_snapper_lambda_v2.utils.sns_publish')
+    mocker.patch('ebs_snapper.utils.sns_publish')
     clean.send_fanout_message(region='us-west-2', topic_arn=expected_sns_topic)
     utils.sns_publish.assert_any_call(  # pylint: disable=E1103
         TopicArn=expected_sns_topic,
@@ -73,7 +73,7 @@ def test_clean_snapshot(mocker):
     dynamo.store_configuration('foo', '111122223333', config_data)
 
     # mock the over-arching method that just loops over the last 10 days
-    mocker.patch('ebs_snapper_lambda_v2.clean.clean_snapshots_tagged')
+    mocker.patch('ebs_snapper.clean.clean_snapshots_tagged')
     clean.clean_snapshot(region)
 
     # be sure we call deletes for multiple days
@@ -118,7 +118,7 @@ def test_clean_snapshots_tagged(mocker):
     utils.snapshot_and_tag(volume_id, delete_on, region)
     snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
 
-    mocker.patch('ebs_snapper_lambda_v2.utils.delete_snapshot')
+    mocker.patch('ebs_snapper.utils.delete_snapshot')
     clean.clean_snapshots_tagged(now, owner_ids, region, [config_data])
 
     # ensure we deleted this snapshot if it was ready to die today

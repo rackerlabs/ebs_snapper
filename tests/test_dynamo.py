@@ -7,7 +7,7 @@ import pytest
 from moto import mock_dynamodb2
 from moto import mock_ec2
 import boto3
-from ebs_snapper_lambda_v2 import dynamo, mocks
+from ebs_snapper import dynamo, mocks
 
 
 @mock_ec2
@@ -33,7 +33,7 @@ def test_list_missing_configurations():
 
 @mock_ec2
 @mock_dynamodb2
-def test__configurations():
+def test_configurations():
     """Test for method for get, fetch, delete."""
 
     # region for our tests

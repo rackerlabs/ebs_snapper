@@ -8,7 +8,7 @@ from datetime import timedelta
 import json
 import logging
 import boto3
-from ebs_snapper_lambda_v2 import utils, dynamo
+from ebs_snapper import utils, dynamo
 
 LOG = logging.getLogger(__name__)
 

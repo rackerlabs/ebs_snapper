@@ -1,5 +1,5 @@
 {
-  "name": "ebs_snapper_lambda_v2",
+  "name": "ebs_snapper",
   "description": "Configuration file for building S3-uploadable archive of this entire package",
   "region": "us-east-1",
   "handler": "function.lambda_handler",

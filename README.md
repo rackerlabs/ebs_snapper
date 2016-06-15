@@ -43,9 +43,9 @@ In the commands below, we enable verbose logging but strip out the boto logging:
 ### Snapshot command
 ```
 $ ebs-snapper -V snapshot 2>&1 | grep -v boto
-INFO:ebs_snapper_lambda_v2.snapshot:send_fanout_message: {"instance_id": "i-c40d2659", "region": "us-east-1", "settings": {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}}
-INFO:ebs_snapper_lambda_v2.snapshot:send_fanout_message: {"instance_id": "i-e937c975", "region": "us-east-1", "settings": {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}}
-INFO:ebs_snapper_lambda_v2.shell:Function shell_fanout_snapshot completed
+INFO:ebs_snapper.snapshot:send_fanout_message: {"instance_id": "i-c40d2659", "region": "us-east-1", "settings": {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}}
+INFO:ebs_snapper.snapshot:send_fanout_message: {"instance_id": "i-e937c975", "region": "us-east-1", "settings": {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}}
+INFO:ebs_snapper.shell:Function shell_fanout_snapshot completed
 ```
 
 As you can see, the tool has found two instances that match the configuration stanza, and is dispatching the work of evaluating if a snapshot is needed. The determination of whether or not a snapshot is needed is passed on to a second lambda job that will also perform the snapshot API calls if necessary.
