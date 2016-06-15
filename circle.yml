@@ -8,6 +8,8 @@ dependencies:
   pre:
     - pip install -U pip
     - pip install -U tox
+    - pip uninstall --yes ebs_snapper || /bin/true
+    - rm -rf /home/ubuntu/virtualenvs/venv-2.7.10/lib/python2.7/site-packages/ebs_snapper* || /bin/true
 
 test:
   override:
