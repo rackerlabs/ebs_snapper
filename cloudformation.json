@@ -63,7 +63,7 @@
         "MetricName" : "Errors",
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
-        "EvaluationPeriods" : "1",
+        "EvaluationPeriods" : "2",
         "Period" : "3660",
         "Statistic" : "Sum",
         "Threshold" : "1",

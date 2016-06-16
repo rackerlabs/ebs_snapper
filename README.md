@@ -1,4 +1,4 @@
-# ebs-snapper-lambda-v2
+# ebs_snapper
 Next generation EBS snapshots using Lambda
 
 ## See also documentation
