@@ -7,7 +7,11 @@
   "ignore": [
     "circle.yml",
     ".git",
-    "/*.pyc"
+    "/*.pyc",
+    ".cache",
+    ".json",
+    ".sh",
+    ".zip"
   ],
   "timeout": 30,
   "memory": 512,

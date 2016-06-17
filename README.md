@@ -1,11 +1,17 @@
 # ebs_snapper
-Next generation EBS snapshots using Lambda
 
-## See also documentation
+This project allows you to schedule regular EBS snapshots and clean up EBS snapshots on EC2. We make use of IAM, Lambda, CloudFormation, DynamoDB, and EC2.
+
+This project is provided under the Apache License, version 2. Pull requests and contributions are always welcome.
 
 - [Requirements](REQUIREMENTS.md)
 - [Design](DESIGN.md)
 - [Testing](TESTING.md)
+- [LICENSE](LICENSE.md)
+
+## Getting support
+
+This software is provided to you with no warranty beyond the Apache License v2.0. If you are a [Rackspace](http://rackspace.com) customer, and you have additional questions or require additional assistance with this project, please open a support ticket.
 
 ## Installing this software
 
