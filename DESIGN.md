@@ -52,15 +52,15 @@ This algorithm is pretty straightforward. We will loop through each region, enum
 
 ### Fan Out 2 - 'ebs_snapper_fanout_clean'
 
-This algorithm is pretty straightforward. We need to fan out per region, and then trigger the cleanup lambda jobs for each region. This job will run daily to trigger the cleanup.
+This algorithm is pretty straightforward. We need to fan out per region, and then trigger the cleanup lambda jobs for each region. This job will run every 6 hours to trigger the cleanup.
 
 ### Snapshot algorithm - 'ebs_snapper_snap'
 
-For the input region, loop through every configuration stanze, and search for EC2 instances that match. If no matching elements are given, a search will return all ec2 instances and queue all instances up using the settings provided. Determine the most recent snapshot taken of any volume. If there are volumes without a snapshot or volumes with a snapshot "StartTime" older than the minimum frequency of snapshots, issue a snapshot of all volumes. Tag the snapshot with the calculated value of (now+retention duration). This job will run on SNS trigger from the fanout job.
+For the input region, loop through every configuration stanze, and search for EC2 instances that match. If no matching elements are given, a search will return all ec2 instances and queue all instances up using the settings provided. Determine the most recent snapshot taken of any volume. If there are volumes without a snapshot or volumes with a snapshot "StartTime" older than the minimum frequency of snapshots, issue a snapshot of all volumes. Tag the snapshot with the calculated value of (now+retention duration). This job will run on SNS trigger from the 'create' fanout job.
 
 ### Clean up algorithm - 'ebs_snapper_clean'
 
-For the input region, loop through every snapshot (ec2-describe-snapshots) with a retention tag. If the current time is after the retention value, and there are a minimum number of snapshots present, delete the snapshot. This job runs daily.
+For the input region, loop through every snapshot (ec2-describe-snapshots) with a retention tag. If the current time is after the retention value, and there are a minimum number of snapshots present, delete the snapshot. This job will run on SNS trigger from the 'clean' fanout job.
 
 ## Python modules, project organization
 
