@@ -20,7 +20,7 @@
     "CleanScheduleExpression" : {
       "Description" : "How often the function should run that checks for snapshots that should be cleaned up.",
       "Type": "String",
-      "Default" : "rate(1 day)"
+      "Default" : "rate(6 hours)"
     }
   },
   "Resources" : {
@@ -64,7 +64,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "2",
-        "Period" : "3660",
+        "Period" : "21600",
         "Statistic" : "Sum",
         "Threshold" : "1",
         "Dimensions" : [{
@@ -186,8 +186,8 @@
         "MetricName" : "Errors",
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
-        "EvaluationPeriods" : "1",
-        "Period" : "3660",
+        "EvaluationPeriods" : "2",
+        "Period" : "21600",
         "Statistic" : "Sum",
         "Threshold" : "1",
         "Dimensions" : [{
@@ -209,7 +209,7 @@
         "MemorySize" : 128,
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
-        "Timeout" : "55"
+        "Timeout" : "300"
       }
     },
     "LambdaExecutionRole" : {
