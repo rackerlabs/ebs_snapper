@@ -8,10 +8,10 @@
     "circle.yml",
     ".git",
     "/*.pyc",
-    ".cache",
-    ".json",
-    ".sh",
-    ".zip"
+    "\\.cache",
+    "\\.json$",
+    "\\.sh$",
+    "\\.zip$"
   ],
   "timeout": 30,
   "memory": 512,
