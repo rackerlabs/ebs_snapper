@@ -21,7 +21,8 @@ setup(
     install_requires=[
         'botocore',
         'boto3',
-        'pytimeparse'
+        'pytimeparse',
+        'lambda_uploader'
     ],
     tests_require=[
         'moto',
