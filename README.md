@@ -13,7 +13,15 @@ This project is provided under the Apache License, version 2. Pull requests and 
 
 This software is provided to you with no warranty beyond the Apache License v2.0. If you are a [Rackspace](http://rackspace.com) customer, and you have additional questions or require additional assistance with this project, please open a support ticket.
 
-## Installing this software
+## Installing this software on your workstation
+
+Since this package is not currently in PyPi, it will need to be installed locally: git clone the repo to your workstation then run these commands from inside the repo's main directory:
+```
+pip install -r requirements.txt
+pip install -e .
+```
+
+## Installing the ebs-snapper into an AWS Account
 
 Use `faws-cli env` with the appropriate account you'd like to install this software into, and then use the `deploy` command (I highly recommend using `-V` on this command) -- example run, hiding boto output:
 ```
