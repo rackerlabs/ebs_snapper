@@ -33,6 +33,7 @@ import ebs_snapper
 from ebs_snapper import utils
 
 LOG = logging.getLogger(__name__)
+DEFAULT_REGION = 'us-east-1'
 
 
 def deploy():
@@ -50,7 +51,7 @@ def deploy():
 
     # check for stack, create it if necessary
     stack_name = 'ebs-snapper-{}'.format(aws_account)
-    cf_client = boto3.client('cloudformation')
+    cf_client = boto3.client('cloudformation', region_name=DEFAULT_REGION)
     stack_list_response = cf_client.list_stacks()
     stack_map = dict()
     for entry in stack_list_response['StackSummaries']:
@@ -84,7 +85,7 @@ def deploy():
 def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
     """Ensure the S3 bucket exists, then upload CF and Lambda files"""
     # ensure S3 bucket exists
-    s3_client = boto3.client('s3')
+    s3_client = boto3.client('s3', region_name=DEFAULT_REGION)
     ebs_bucket_name = 'ebs-snapper-{}'.format(aws_account)
     LOG.info("Creating S3 bucket %s if it doesn't exist", ebs_bucket_name)
     s3_client.create_bucket(
@@ -117,7 +118,7 @@ def build_package(lambda_zip_filename):
 
 def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
     """Re-publish lambda function and a new version based on our version"""
-    lambda_client = boto3.client('lambda')
+    lambda_client = boto3.client('lambda', region_name=DEFAULT_REGION)
     lambda_function_list = lambda_client.list_functions()
     lambda_function_map = dict()
     for entry in lambda_function_list['Functions']:
