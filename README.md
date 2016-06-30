@@ -15,7 +15,37 @@ This software is provided to you with no warranty beyond the Apache License v2.0
 
 ## Installing this software
 
-This software comes with a script [upload.sh](/upload.sh), that performs the following steps. If you need to manually install this software, you may follow these steps or read along in `upload.sh`.
+Use `faws-cli env` with the appropriate account you'd like to install this software into, and then use the `deploy` command (I highly recommend using `-V` on this command) -- example run, hiding boto output:
+```
+$ ebs-snapper -V deploy 2>&1 | grep -v botocore
+INFO:ebs_snapper.deploy:Building package using lambda-uploader
+INFO:lambda_uploader.package:Building new virtualenv and installing requirements
+INFO:lambda_uploader.package:Copying site packages
+INFO:lambda_uploader.utils:Copying source files
+INFO:lambda_uploader.package:Copying lib64 site packages
+INFO:lambda_uploader.utils:Copying source files
+INFO:lambda_uploader.package:Copying extra ebs_snapper/lambdas.py into package
+INFO:lambda_uploader.utils:Copying source files
+INFO:lambda_uploader.package:Creating zipfile
+INFO:ebs_snapper.deploy:Creating S3 bucket ebs-snapper-386913580367 if it doesn't exist
+INFO:ebs_snapper.deploy:Uploading files into S3 bucket
+INFO:ebs_snapper.deploy:Uploading cloudformation.json to bucket ebs-snapper-386913580367
+INFO:ebs_snapper.deploy:Uploading lambda_function.zip to bucket ebs-snapper-386913580367
+INFO:ebs_snapper.deploy:EBS Snapper functions found: [u'ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY', u'ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI', u'ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD', u'ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4']
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 200, 'RequestId': 'd46a67f6-3e14-11e6-a7ba-1922d5da6516'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 201, 'RequestId': 'd56828ee-3e14-11e6-a4be-69a6ba3bb259'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 200, 'RequestId': 'd5776b92-3e14-11e6-a79c-b19da9b3c864'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 201, 'RequestId': 'd6c93fb8-3e14-11e6-86c1-c74f9df99951'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 200, 'RequestId': 'd6d881e6-3e14-11e6-a932-f9545c2ef676'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 201, 'RequestId': 'd7b9e0da-3e14-11e6-8fa4-e3e2a6dc773a'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 200, 'RequestId': 'd7ca5b9a-3e14-11e6-8c61-c967675510cf'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 201, 'RequestId': 'd915c7f2-3e14-11e6-9bdf-896152a8ec90'}
+INFO:ebs_snapper.shell:Function shell_deploy completed
+```
+
+The first time you run deploy, this will only create the stack in CloudFormation. After the first time, run this again to publish new versions of the tool to an account, as new versions are released.
+
+If you need to manually install this software, you may follow these steps.
 
 1. Create an S3 bucket in "US General" / "us-east-1" and name it `ebs-snapper-<FAWS_ACCOUNT_ID>`
 1. Run lambda-uploader to build a lambda_function.zip file:

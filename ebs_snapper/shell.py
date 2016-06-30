@@ -29,7 +29,7 @@ import argparse
 import json
 
 import ebs_snapper
-from ebs_snapper import snapshot, clean, dynamo, utils
+from ebs_snapper import snapshot, clean, dynamo, utils, deploy
 
 LOG = logging.getLogger(__name__)
 
@@ -69,6 +69,13 @@ def main(arv=None):
     '''
     parser_clean = subparsers.add_parser('clean', help=clean_help)
     parser_clean.set_defaults(func=shell_fanout_clean)
+
+    # deploy subcommand
+    deploy_help = '''
+        deploy this tool (or update to a new version) on the account
+    '''
+    parser_deploy = subparsers.add_parser('deploy', help=deploy_help)
+    parser_deploy.set_defaults(func=shell_deploy)
 
     # configure subcommand (get, set, delete)
     config_help = '''
@@ -138,6 +145,15 @@ def shell_snapshot(*args):
         message_json['settings'])
 
     LOG.info('Function shell_snapshot completed')
+
+
+def shell_deploy(*args):
+    """Deploy this tool to a given account."""
+
+    # call the snapshot cleanup method
+    deploy.deploy()
+
+    LOG.info('Function shell_deploy completed')
 
 
 def shell_clean(*args):
