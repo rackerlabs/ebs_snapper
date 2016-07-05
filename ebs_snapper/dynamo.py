@@ -28,13 +28,13 @@ from boto3.dynamodb.conditions import Key
 from ebs_snapper import utils
 
 
-def list_ids(aws_account_id=None):
+def list_ids(installed_region, aws_account_id=None):
     """Retrieve configuration from DynamoDB and return array of dictionary objects"""
     found_configurations = {}
     if aws_account_id is None:
         aws_account_id = utils.get_owner_id()[0]
 
-    dynamodb = boto3.resource('dynamodb')
+    dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
 
     results = table.query(
@@ -48,13 +48,13 @@ def list_ids(aws_account_id=None):
     return found_configurations.values()
 
 
-def list_configurations(aws_account_id=None):
+def list_configurations(installed_region, aws_account_id=None):
     """Retrieve configuration from DynamoDB and return array of dictionary objects"""
     found_configurations = {}
     if aws_account_id is None:
         aws_account_id = utils.get_owner_id()[0]
 
-    dynamodb = boto3.resource('dynamodb')
+    dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
 
     results = table.query(
@@ -69,12 +69,12 @@ def list_configurations(aws_account_id=None):
     return found_configurations.values()
 
 
-def get_configuration(object_id, aws_account_id=None):
+def get_configuration(installed_region, object_id, aws_account_id=None):
     """Retrieve configuration from DynamoDB and return single object"""
     if aws_account_id is None:
         aws_account_id = utils.get_owner_id()[0]
 
-    dynamodb = boto3.resource('dynamodb')
+    dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
 
     expr = Key('aws_account_id').eq(aws_account_id) & Key('id').eq(object_id)
@@ -88,9 +88,9 @@ def get_configuration(object_id, aws_account_id=None):
     return None
 
 
-def store_configuration(object_id, aws_account_id, configuration):
+def store_configuration(installed_region, object_id, aws_account_id, configuration):
     """Function to store configuration item"""
-    dynamodb = boto3.resource('dynamodb')
+    dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
 
     response = table.put_item(
@@ -104,9 +104,9 @@ def store_configuration(object_id, aws_account_id, configuration):
     return response.get('Attributes', {})
 
 
-def delete_configuration(object_id, aws_account_id):
+def delete_configuration(installed_region, object_id, aws_account_id):
     """Function to delete configuration item"""
-    dynamodb = boto3.resource('dynamodb')
+    dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
 
     response = table.delete_item(

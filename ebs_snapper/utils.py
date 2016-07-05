@@ -79,9 +79,13 @@ def region_contains_instances(region):
     return 'Reservations' in instances and len(instances['Reservations']) > 0
 
 
-def get_topic_arn(topic_name):
+def get_topic_arn(topic_name, default_region=None):
     """Search for an SNS topic containing topic_name."""
-    regions = get_regions()
+    if default_region is None:
+        regions = get_regions()
+    else:
+        regions = [default_region]
+
     for region in regions:
         client = boto3.client('sns', region_name=region)
         topics = client.list_topics()
