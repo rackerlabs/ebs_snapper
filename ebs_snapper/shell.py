@@ -53,6 +53,11 @@ def main(arv=None):
                          help="Set log-level to DEBUG.")
     parser.set_defaults(loglevel=logging.WARNING)
 
+    # region setting
+    parser.add_argument('-t', '--tool_region', dest='conf_toolregion',
+                        nargs='?', default='us-east-1',
+                        help="dynamodb & SNS region used by ebs-snapper (us-east-1 is default)")
+
     # Sub-commands & help
     subparsers = parser.add_subparsers(help='sub-command help')
 
@@ -107,7 +112,6 @@ def main(arv=None):
     parser_configure.add_argument('configuration_json', nargs='?', default=None)
 
     # do all the things!
-
     try:
         args = parser.parse_args()
         logging.basicConfig(level=args.loglevel)
@@ -178,10 +182,12 @@ def shell_configure(*args):
 
     object_id = args[0].object_id
     action = args[0].conf_action
+    installed_region = args[0].conf_toolregion
 
     if action == 'list':
         LOG.info('Listing all object keys')
         list_results = dynamo.list_ids(
+            installed_region,
             aws_account_id=aws_account_id)
         if list_results is None or len(list_results) == 0:
             print('No configurations found')
@@ -198,6 +204,7 @@ def shell_configure(*args):
         LOG.info('Retrieving %s', args[0])
 
         single_result = dynamo.get_configuration(
+            installed_region,
             object_id=object_id,
             aws_account_id=aws_account_id)
         if single_result is None:
@@ -212,11 +219,12 @@ def shell_configure(*args):
 
         config = json.loads(args[0].configuration_json)
         LOG.debug("Configuration: %s", config)
-        dynamo.store_configuration(object_id, aws_account_id, config)
+        dynamo.store_configuration(installed_region, object_id, aws_account_id, config)
         print('Saved to key {} under account {}'
               .format(object_id, aws_account_id))
     elif action == 'del':
         print(dynamo.delete_configuration(
+            installed_region,
             object_id=object_id,
             aws_account_id=aws_account_id))
     else:

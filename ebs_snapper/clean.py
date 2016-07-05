@@ -51,7 +51,7 @@ def send_fanout_message(region, topic_arn):
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
-def clean_snapshot(region):
+def clean_snapshot(region, installed_region='us-east-1'):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
 
@@ -59,7 +59,7 @@ def clean_snapshot(region):
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
 
     LOG.info('Fetching all possible configuration rules from DynamoDB')
-    configurations = dynamo.list_configurations()
+    configurations = dynamo.list_configurations(installed_region)
 
     deleted_count = 0
     delete_on = datetime.date.today()

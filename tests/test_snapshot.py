@@ -49,7 +49,7 @@ def test_perform_fanout_all_regions_snapshot(mocker):
             instance_maps[instance_data['InstanceId']] = dummy_region
 
     # need to filter instances, so need dynamodb present
-    mocks.create_dynamodb()
+    mocks.create_dynamodb('us-east-1')
     config_data = {
         "match": {
             "instance-id": instance_maps.keys()
@@ -60,7 +60,7 @@ def test_perform_fanout_all_regions_snapshot(mocker):
             "frequency": "11 hours"
         }
     }
-    dynamo.store_configuration('some_unique_id', '111122223333', config_data)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', config_data)
 
     # patch the final message sender method
     mocker.patch('ebs_snapper.snapshot.perform_fanout_by_region')
@@ -78,8 +78,8 @@ def test_perform_fanout_by_region_snapshot(mocker):
     """Test for method of the same name."""
 
     # make a dummy SNS topic
-    mocks.create_sns_topic('CreateSnapshotTopic')
-    expected_sns_topic = utils.get_topic_arn('CreateSnapshotTopic')
+    mocks.create_sns_topic('CreateSnapshotTopic', 'us-east-1')
+    expected_sns_topic = utils.get_topic_arn('CreateSnapshotTopic', 'us-east-1')
 
     dummy_regions = ['us-west-2', 'us-east-1']
 
@@ -92,7 +92,7 @@ def test_perform_fanout_by_region_snapshot(mocker):
             instance_maps[instance_data['InstanceId']] = dummy_region
 
     # need to filter instances, so need dynamodb present
-    mocks.create_dynamodb()
+    mocks.create_dynamodb('us-east-1')
     config_data = {
         "match": {
             "instance-id": instance_maps.keys()
@@ -103,7 +103,7 @@ def test_perform_fanout_by_region_snapshot(mocker):
             "frequency": "12 hours"
         }
     }
-    dynamo.store_configuration('some_unique_id', '111122223333', config_data)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', config_data)
 
     # patch the final message sender method
     mocker.patch('ebs_snapper.snapshot.send_fanout_message')

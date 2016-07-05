@@ -40,7 +40,7 @@ def test_perform_fanout_all_regions_clean(mocker):
     expected_regions = utils.get_regions()
     for r in expected_regions:  # must have an instance in the region to clean it
         mocks.create_instances(region=r)
-    expected_sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
+    expected_sns_topic = utils.get_topic_arn('CleanSnapshotTopic', 'us-east-1')
 
     mocker.patch('ebs_snapper.clean.send_fanout_message')
 
@@ -59,7 +59,7 @@ def test_send_fanout_message_clean(mocker):
     """Test for method of the same name."""
 
     mocks.create_sns_topic('testing-topic')
-    expected_sns_topic = utils.get_topic_arn('testing-topic')
+    expected_sns_topic = utils.get_topic_arn('testing-topic', 'us-east-1')
 
     mocker.patch('ebs_snapper.utils.sns_publish')
     clean.send_fanout_message(region='us-west-2', topic_arn=expected_sns_topic)
@@ -88,8 +88,8 @@ def test_clean_snapshot(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    mocks.create_dynamodb()
-    dynamo.store_configuration('foo', '111122223333', config_data)
+    mocks.create_dynamodb(region)
+    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
 
     # mock the over-arching method that just loops over the last 10 days
     mocker.patch('ebs_snapper.clean.clean_snapshots_tagged')
@@ -111,7 +111,7 @@ def test_clean_snapshots_tagged(mocker):
     """Test for method of the same name."""
     # default settings
     region = 'us-east-1'
-    mocks.create_dynamodb()
+    mocks.create_dynamodb(region)
 
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]
@@ -126,7 +126,7 @@ def test_clean_snapshots_tagged(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    dynamo.store_configuration('foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
 
     # figure out the EBS volume that came with our instance
     volume_id = utils.get_volumes(instance_id, region)[0]
@@ -146,6 +146,6 @@ def test_clean_snapshots_tagged(mocker):
     # now raise the minimum, and check to be sure we didn't delete
     utils.delete_snapshot.reset_mock()  # pylint: disable=E1103
     config_data['snapshot']['minimum'] = 5
-    dynamo.store_configuration('foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
     clean.clean_snapshots_tagged(now, owner_ids, region, [config_data])
     utils.delete_snapshot.assert_not_called()  # pylint: disable=E1103

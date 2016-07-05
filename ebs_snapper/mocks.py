@@ -35,9 +35,9 @@ def create_sns_topic(topic_name, region_name='us-east-1'):
         raise Exception('Could not create topic {} in region {}'.format(topic_name, region_name))
 
 
-def create_dynamodb(region='us-east-1'):
+def create_dynamodb(installed_region='us-east-1'):
     """Used with moto, create DynamoDB table"""
-    dynamodb = boto3.resource('dynamodb', region_name=region)
+    dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     dynamodb.create_table(
         TableName='ebs_snapshot_configuration',
         KeySchema=[

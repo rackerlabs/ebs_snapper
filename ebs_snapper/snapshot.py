@@ -42,13 +42,13 @@ def perform_fanout_all_regions():
         perform_fanout_by_region(region=region)
 
 
-def perform_fanout_by_region(region):
+def perform_fanout_by_region(region, installed_region='us-east-1'):
     """For a specific region, run this function for every matching instance"""
 
-    sns_topic = utils.get_topic_arn('CreateSnapshotTopic')
+    sns_topic = utils.get_topic_arn('CreateSnapshotTopic', installed_region)
 
     # get all configurations, so we can filter instances
-    configurations = dynamo.list_configurations()
+    configurations = dynamo.list_configurations(installed_region)
     if len(configurations) <= 0:
         LOG.warn('No EBS snapshot configurations were found for region %s', region)
         LOG.warn('No new snapshots will be created for region %s', region)
