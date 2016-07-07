@@ -56,7 +56,8 @@ def deploy():
     stack_map = dict()
     for entry in stack_list_response['StackSummaries']:
         stack_map[entry['StackName']] = entry['StackStatus']
-    found_ebs_snapper_stack = [x for x in stack_map if stack_name == x]
+    found_ebs_snapper_stack = [x for x, y in stack_map.iteritems()
+                               if stack_name == x and 'DELETE' not in y]
 
     if not found_ebs_snapper_stack:
         # create it
