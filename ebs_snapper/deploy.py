@@ -24,8 +24,12 @@
 
 from __future__ import print_function
 import logging
+import time
+import hashlib
+import base64
 
 import boto3
+from botocore.exceptions import ClientError
 from lambda_uploader import package as lu_package
 from lambda_uploader import config as lu_config
 
@@ -34,18 +38,39 @@ from ebs_snapper import utils
 
 LOG = logging.getLogger(__name__)
 DEFAULT_REGION = 'us-east-1'
+STACK_WAIT_STATUS = ['CREATE_IN_PROGRESS', 'UPDATE_IN_PROGRESS',
+                     'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS']
+STACK_FATAL_STATUS = ['CREATE_FAILED', 'ROLLBACK_IN_PROGRESS',
+                      'ROLLBACK_COMPLETE', 'ROLLBACK_FAILED',
+                      'UPDATE_ROLLBACK_FAILED', 'UPDATE_ROLLBACK_COMPLETE',
+                      'UPDATE_ROLLBACK_IN_PROGRESS',
+                      'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS']
+STACK_SUCCESS_STATUS = ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
 
 
-def deploy():
+def deploy(aws_account_id=None, no_build=None):
     """Main function that does the deploy to an aws account"""
     # lambda-uploader configuration step
-    LOG.info("Building package using lambda-uploader")
 
     lambda_zip_filename = 'lambda_function.zip'
-    build_package(lambda_zip_filename)
+    if not no_build:
+        LOG.info("Building package using lambda-uploader")
+        build_package(lambda_zip_filename)
 
     # get security credentials from EC2 API
-    aws_account = utils.get_owner_id()[0]
+    if aws_account_id is None:
+        found_owners = utils.get_owner_id()
+    else:
+        found_owners = [aws_account_id]
+
+    if len(found_owners) <= 0:
+        LOG.warn('There are no instances I could find on this account.')
+        LOG.warn('I cannot figure out the account number without any instances.')
+        LOG.warn('Without the account number, I do not know what to name the S3 bucket or stack.')
+        LOG.warn('You may provide it on the commandline to bypass this error.')
+        return
+    else:
+        aws_account = found_owners[0]
 
     ebs_bucket_name = create_or_update_s3_bucket(aws_account, lambda_zip_filename)
 
@@ -53,15 +78,14 @@ def deploy():
     stack_name = 'ebs-snapper-{}'.format(aws_account)
     cf_client = boto3.client('cloudformation', region_name=DEFAULT_REGION)
     stack_list_response = cf_client.list_stacks()
-    stack_map = dict()
-    for entry in stack_list_response['StackSummaries']:
-        stack_map[entry['StackName']] = entry['StackStatus']
-    found_ebs_snapper_stack = [x for x, y in stack_map.iteritems()
-                               if stack_name == x and 'DELETE' not in y]
+    stack_summaries = stack_list_response.get('StackSummaries', [])
 
-    if not found_ebs_snapper_stack:
-        # create it
-        template_url = "https://s3.amazonaws.com/{}/cloudformation.json".format(ebs_bucket_name)
+    stack_map = dict()
+    for entry in stack_summaries:
+        stack_map[entry['StackName']] = entry['StackStatus']
+
+    template_url = "https://s3.amazonaws.com/{}/cloudformation.json".format(ebs_bucket_name)
+    try:
         LOG.info('Creating stack from %s', template_url)
         response = cf_client.create_stack(
             StackName=stack_name,
@@ -75,9 +99,35 @@ def deploy():
                 'CAPABILITY_IAM',
             ])
         LOG.debug(response)
-        LOG.warn("Exiting while the stack %s is created.", stack_name)
-        LOG.warn("Run this later once your stack is ready.")
-        return
+        LOG.warn("Wait while the stack %s is created.", stack_name)
+    except ClientError as e:
+        if not e.response['Error']['Code'] == 'AlreadyExistsException':
+            raise
+
+        try:
+            LOG.info('Stack exists, updating stack from %s', template_url)
+            response = cf_client.update_stack(
+                StackName=stack_name,
+                TemplateURL=template_url,
+                Parameters=[{
+                    'ParameterKey': 'LambdaS3Bucket',
+                    'ParameterValue': ebs_bucket_name,
+                    'UsePreviousValue': False
+                }],
+                Capabilities=[
+                    'CAPABILITY_IAM',
+                ])
+            LOG.debug(response)
+            LOG.warn("Waiting while the stack %s is being updated.", stack_name)
+        except ClientError as f:
+            validation_error = f.response['Error']['Code'] == 'ValidationError'
+            no_updates = f.response['Error']['Message'] == 'No updates are to be performed.'
+            if not validation_error and not no_updates:
+                raise
+            LOG.warn('No changes. Stack was not updated.')
+
+    # wait for stack to settle to a completed status
+    wait_for_completion(cf_client, stack_name)
 
     # freshen up lambda jobs themselves
     update_function_and_version(ebs_bucket_name, lambda_zip_filename)
@@ -117,19 +167,61 @@ def build_package(lambda_zip_filename):
     pkg.clean_workspace()
 
 
+def wait_for_completion(cf_client, stack_name):
+    """Wait for stack to be in a stable, complete status"""
+    sleep_timer = 0
+    stack_status = None
+    while sleep_timer < 20 and stack_status not in STACK_SUCCESS_STATUS:
+        time.sleep(6)
+
+        response = cf_client.describe_stacks(StackName=stack_name)
+
+        if 'Stacks' not in response:
+            raise Exception('Polling for stack changes failed', response)
+
+        found_stacks = response['Stacks']
+        for stack_data in found_stacks:
+            if stack_data['StackName'] != stack_name:
+                continue
+
+            stack_status = stack_data['StackStatus']
+            if stack_status in STACK_FATAL_STATUS:
+                raise Exception('Stack creation or update failed', stack_data)
+            elif stack_status in STACK_SUCCESS_STATUS:
+                LOG.warn('Stack is in a successful state, moving along.')
+            elif stack_status in STACK_WAIT_STATUS:
+                LOG.warn('.')
+                sleep_timer += 1
+            else:
+                raise Exception('Stack was in a status I do not recognize', stack_data)
+
+
 def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
     """Re-publish lambda function and a new version based on our version"""
     lambda_client = boto3.client('lambda', region_name=DEFAULT_REGION)
     lambda_function_list = lambda_client.list_functions()
     lambda_function_map = dict()
     for entry in lambda_function_list['Functions']:
-        lambda_function_map[entry['FunctionName']] = entry
+        if 'ebs-snapper' in entry['FunctionName']:
+            lambda_function_map[entry['FunctionName']] = entry
 
-    ebs_snapper_functions = [x for x in lambda_function_map.keys() if 'ebs-snapper' in x]
-    LOG.info("EBS Snapper functions found: %s", ebs_snapper_functions)
+    if len(lambda_function_map.keys()) > 0:
+        LOG.info("EBS Snapper functions found: %s", lambda_function_map.keys())
+    else:
+        LOG.warn('No EBS snapshot functions were found.')
+        LOG.warn('Please check that EBS snapper stack exists on this account.')
+
+    bytes_read = open("lambda_function.zip", "rb").read()
+    existing_hash = base64.b64encode(hashlib.sha256(bytes_read).digest())
 
     # publish new version / activate them
-    for function_name in ebs_snapper_functions:
+    for function_name in lambda_function_map.keys():
+        new_hash = lambda_function_map[function_name]['CodeSha256']
+
+        if existing_hash == new_hash:
+            LOG.info('Skipping %s, as it is already up to date', function_name)
+            continue
+
         update_response = lambda_client.update_function_code(
             FunctionName=function_name,
             S3Bucket=ebs_bucket_name,

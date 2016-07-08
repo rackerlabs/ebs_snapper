@@ -80,6 +80,9 @@ def main(arv=None):
         deploy this tool (or update to a new version) on the account
     '''
     parser_deploy = subparsers.add_parser('deploy', help=deploy_help)
+    parser_deploy.add_argument('-a', '--aws_account_id', nargs='?', default=None)
+    parser_deploy.add_argument('-n', '--no_build', dest='no_build',
+                               action='store_const', const=True, default=False)
     parser_deploy.set_defaults(func=shell_deploy)
 
     # configure subcommand (get, set, delete)
@@ -155,7 +158,7 @@ def shell_deploy(*args):
     """Deploy this tool to a given account."""
 
     # call the snapshot cleanup method
-    deploy.deploy()
+    deploy.deploy(aws_account_id=args[0].aws_account_id, no_build=args[0].no_build)
 
     LOG.info('Function shell_deploy completed')
 
