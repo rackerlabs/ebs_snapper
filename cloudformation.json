@@ -107,7 +107,7 @@
         "EvaluationPeriods" : "2",
         "Period" : "21600",
         "Statistic" : "Sum",
-        "Threshold" : "1",
+        "Threshold" : "2",
         "Dimensions" : [{
             "Name" : "FunctionName",
             "Value" : { "Ref" : "FanoutCleanSnapshotFunction" }
@@ -189,7 +189,7 @@
         "EvaluationPeriods" : "2",
         "Period" : "21600",
         "Statistic" : "Sum",
-        "Threshold" : "1",
+        "Threshold" : "2",
         "Dimensions" : [{
             "Name" : "FunctionName",
             "Value" : { "Ref" : "CleanSnapshotFunction" }
