@@ -10,8 +10,12 @@ dependencies:
     - pip install -U tox
     - pip uninstall --yes ebs_snapper || /bin/true
     - rm -rf /home/ubuntu/virtualenvs/venv-2.7.10/lib/python2.7/site-packages/ebs_snapper* || /bin/true
+  post:
+    - go get github.com/jarosser06/s3artifact
 
 test:
   override:
     - aws cloudformation validate-template --template-body=file://cloudformation.json
     - tox
+  post:
+    - ./circleci-release.sh

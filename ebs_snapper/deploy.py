@@ -48,11 +48,11 @@ STACK_FATAL_STATUS = ['CREATE_FAILED', 'ROLLBACK_IN_PROGRESS',
 STACK_SUCCESS_STATUS = ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
 
 
-def deploy(aws_account_id=None, no_build=None):
+def deploy(aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
     """Main function that does the deploy to an aws account"""
     # lambda-uploader configuration step
 
-    lambda_zip_filename = 'lambda_function.zip'
+    lambda_zip_filename = 'ebs_snapper.zip'
     if not no_build:
         LOG.info("Building package using lambda-uploader")
         build_package(lambda_zip_filename)
@@ -72,65 +72,17 @@ def deploy(aws_account_id=None, no_build=None):
     else:
         aws_account = found_owners[0]
 
-    ebs_bucket_name = create_or_update_s3_bucket(aws_account, lambda_zip_filename)
+    # freshen the S3 bucket
+    if not no_upload:
+        ebs_bucket_name = create_or_update_s3_bucket(aws_account, lambda_zip_filename)
 
-    # check for stack, create it if necessary
-    stack_name = 'ebs-snapper-{}'.format(aws_account)
-    cf_client = boto3.client('cloudformation', region_name=DEFAULT_REGION)
-    stack_list_response = cf_client.list_stacks()
-    stack_summaries = stack_list_response.get('StackSummaries', [])
-
-    stack_map = dict()
-    for entry in stack_summaries:
-        stack_map[entry['StackName']] = entry['StackStatus']
-
-    template_url = "https://s3.amazonaws.com/{}/cloudformation.json".format(ebs_bucket_name)
-    try:
-        LOG.info('Creating stack from %s', template_url)
-        response = cf_client.create_stack(
-            StackName=stack_name,
-            TemplateURL=template_url,
-            Parameters=[{
-                'ParameterKey': 'LambdaS3Bucket',
-                'ParameterValue': ebs_bucket_name,
-                'UsePreviousValue': False
-            }],
-            Capabilities=[
-                'CAPABILITY_IAM',
-            ])
-        LOG.debug(response)
-        LOG.warn("Wait while the stack %s is created.", stack_name)
-    except ClientError as e:
-        if not e.response['Error']['Code'] == 'AlreadyExistsException':
-            raise
-
-        try:
-            LOG.info('Stack exists, updating stack from %s', template_url)
-            response = cf_client.update_stack(
-                StackName=stack_name,
-                TemplateURL=template_url,
-                Parameters=[{
-                    'ParameterKey': 'LambdaS3Bucket',
-                    'ParameterValue': ebs_bucket_name,
-                    'UsePreviousValue': False
-                }],
-                Capabilities=[
-                    'CAPABILITY_IAM',
-                ])
-            LOG.debug(response)
-            LOG.warn("Waiting while the stack %s is being updated.", stack_name)
-        except ClientError as f:
-            validation_error = f.response['Error']['Code'] == 'ValidationError'
-            no_updates = f.response['Error']['Message'] == 'No updates are to be performed.'
-            if not validation_error and not no_updates:
-                raise
-            LOG.warn('No changes. Stack was not updated.')
-
-    # wait for stack to settle to a completed status
-    wait_for_completion(cf_client, stack_name)
+    # freshen the stack
+    if not no_stack:
+        create_or_update_stack(aws_account, DEFAULT_REGION, ebs_bucket_name)
 
     # freshen up lambda jobs themselves
-    update_function_and_version(ebs_bucket_name, lambda_zip_filename)
+    if not no_upload:
+        update_function_and_version(ebs_bucket_name, lambda_zip_filename)
 
 
 def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
@@ -196,6 +148,63 @@ def wait_for_completion(cf_client, stack_name):
                 raise Exception('Stack was in a status I do not recognize', stack_data)
 
 
+def create_or_update_stack(aws_account, region, ebs_bucket_name):
+        # check for stack, create it if necessary
+        stack_name = 'ebs-snapper-{}'.format(aws_account)
+        cf_client = boto3.client('cloudformation', region_name=region)
+        stack_list_response = cf_client.list_stacks()
+        stack_summaries = stack_list_response.get('StackSummaries', [])
+
+        stack_map = dict()
+        for entry in stack_summaries:
+            stack_map[entry['StackName']] = entry['StackStatus']
+
+        template_url = "https://s3.amazonaws.com/{}/cloudformation.json".format(ebs_bucket_name)
+        try:
+            LOG.info('Creating stack from %s', template_url)
+            response = cf_client.create_stack(
+                StackName=stack_name,
+                TemplateURL=template_url,
+                Parameters=[{
+                    'ParameterKey': 'LambdaS3Bucket',
+                    'ParameterValue': ebs_bucket_name,
+                    'UsePreviousValue': False
+                }],
+                Capabilities=[
+                    'CAPABILITY_IAM',
+                ])
+            LOG.debug(response)
+            LOG.warn("Wait while the stack %s is created.", stack_name)
+        except ClientError as e:
+            if not e.response['Error']['Code'] == 'AlreadyExistsException':
+                raise
+
+            try:
+                LOG.info('Stack exists, updating stack from %s', template_url)
+                response = cf_client.update_stack(
+                    StackName=stack_name,
+                    TemplateURL=template_url,
+                    Parameters=[{
+                        'ParameterKey': 'LambdaS3Bucket',
+                        'ParameterValue': ebs_bucket_name,
+                        'UsePreviousValue': False
+                    }],
+                    Capabilities=[
+                        'CAPABILITY_IAM',
+                    ])
+                LOG.debug(response)
+                LOG.warn("Waiting while the stack %s is being updated.", stack_name)
+            except ClientError as f:
+                validation_error = f.response['Error']['Code'] == 'ValidationError'
+                no_updates = f.response['Error']['Message'] == 'No updates are to be performed.'
+                if not validation_error and not no_updates:
+                    raise
+                LOG.warn('No changes. Stack was not updated.')
+
+        # wait for stack to settle to a completed status
+        wait_for_completion(cf_client, stack_name)
+
+
 def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
     """Re-publish lambda function and a new version based on our version"""
     lambda_client = boto3.client('lambda', region_name=DEFAULT_REGION)
@@ -211,7 +220,7 @@ def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
         LOG.warn('No EBS snapshot functions were found.')
         LOG.warn('Please check that EBS snapper stack exists on this account.')
 
-    bytes_read = open("lambda_function.zip", "rb").read()
+    bytes_read = open(lambda_zip_filename, "rb").read()
     existing_hash = base64.b64encode(hashlib.sha256(bytes_read).digest())
 
     # publish new version / activate them

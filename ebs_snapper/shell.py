@@ -83,6 +83,10 @@ def main(arv=None):
     parser_deploy.add_argument('-a', '--aws_account_id', nargs='?', default=None)
     parser_deploy.add_argument('-n', '--no_build', dest='no_build',
                                action='store_const', const=True, default=False)
+    parser_deploy.add_argument('-m', '--no_upload', dest='no_upload',
+                               action='store_const', const=True, default=False)
+    parser_deploy.add_argument('-o', '--no_stack', dest='no_stack',
+                               action='store_const', const=True, default=False)
     parser_deploy.set_defaults(func=shell_deploy)
 
     # configure subcommand (get, set, delete)
@@ -156,9 +160,12 @@ def shell_snapshot(*args):
 
 def shell_deploy(*args):
     """Deploy this tool to a given account."""
-
     # call the snapshot cleanup method
-    deploy.deploy(aws_account_id=args[0].aws_account_id, no_build=args[0].no_build)
+    deploy.deploy(aws_account_id=args[0].aws_account_id,
+                  no_build=args[0].no_build,
+                  no_upload=args[0].no_upload,
+                  no_stack=args[0].no_stack
+                  )
 
     LOG.info('Function shell_deploy completed')
 

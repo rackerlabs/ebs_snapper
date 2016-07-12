@@ -9,6 +9,10 @@ This project is provided under the Apache License, version 2. Pull requests and 
 - [Testing](TESTING.md)
 - [LICENSE](LICENSE.md)
 
+## Releases
+
+[Latest](https://s3.amazonaws.com/production-ebs-snapper/latest/ebs_snapper.zip)
+
 ## Getting support
 
 This software is provided to you with no warranty beyond the Apache License v2.0. If you are a [Rackspace](http://rackspace.com) customer, and you have additional questions or require additional assistance with this project, please open a support ticket.
@@ -38,7 +42,7 @@ INFO:lambda_uploader.package:Creating zipfile
 INFO:ebs_snapper.deploy:Creating S3 bucket ebs-snapper-386913580367 if it doesn't exist
 INFO:ebs_snapper.deploy:Uploading files into S3 bucket
 INFO:ebs_snapper.deploy:Uploading cloudformation.json to bucket ebs-snapper-386913580367
-INFO:ebs_snapper.deploy:Uploading lambda_function.zip to bucket ebs-snapper-386913580367
+INFO:ebs_snapper.deploy:Uploading ebs_snapper.zip to bucket ebs-snapper-386913580367
 INFO:ebs_snapper.deploy:EBS Snapper functions found: [u'ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY', u'ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI', u'ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD', u'ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4']
 INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 200, 'RequestId': 'd46a67f6-3e14-11e6-a7ba-1922d5da6516'}
 INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 201, 'RequestId': 'd56828ee-3e14-11e6-a4be-69a6ba3bb259'}
@@ -56,11 +60,11 @@ The first time you run deploy, this will only create the stack in CloudFormation
 If you need to manually install this software, you may follow these steps.
 
 1. Create an S3 bucket in "US General" / "us-east-1" and name it `ebs-snapper-<FAWS_ACCOUNT_ID>`
-1. Run lambda-uploader to build a lambda_function.zip file:
+1. Run lambda-uploader to build an ebs_snapper.zip file:
 ```
 lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .
 ```
-1. Upload `cloudformation.json` and `lambda_function.zip` to the S3 bucket you created.
+1. Upload `cloudformation.json` and `ebs_snapper.zip` to the S3 bucket you created.
 1. Create a stack using the [CloudFormation template](cloudformation.json)
 1. Publish new versions of the four lambda functions from the template in the previous step. Make sure the description contains only the version of `ebs-snapper` that was uploaded.
 
