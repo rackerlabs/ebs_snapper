@@ -79,7 +79,7 @@
       "Properties" : {
         "Code" : {
           "S3Bucket" : { "Ref" : "LambdaS3Bucket" },
-          "S3Key" : "lambda_function.zip"
+          "S3Key" : "ebs_snapper.zip"
         },
         "Description" : "snapshot and tags main task",
         "Handler" : "lambdas.lambda_fanout_snapshot",
@@ -120,7 +120,7 @@
       "Properties" : {
         "Code" : {
           "S3Bucket" : { "Ref" : "LambdaS3Bucket" },
-          "S3Key" : "lambda_function.zip"
+          "S3Key" : "ebs_snapper.zip"
         },
         "Description" : "snapshot and tags main task",
         "Handler" : "lambdas.lambda_fanout_clean",
@@ -161,7 +161,7 @@
       "Properties" : {
         "Code" : {
           "S3Bucket" : { "Ref" : "LambdaS3Bucket" },
-          "S3Key" : "lambda_function.zip"
+          "S3Key" : "ebs_snapper.zip"
         },
         "Description" : "create tags and snapshots task",
         "Handler" : "lambdas.lambda_snapshot",
@@ -202,7 +202,7 @@
       "Properties" : {
         "Code" : {
           "S3Bucket" : { "Ref" : "LambdaS3Bucket" },
-          "S3Key" : "lambda_function.zip"
+          "S3Key" : "ebs_snapper.zip"
         },
         "Description" : "create tags and snapshots task",
         "Handler" : "lambdas.lambda_clean",
