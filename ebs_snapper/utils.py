@@ -26,6 +26,7 @@ import logging
 from datetime import timedelta
 import boto3
 from pytimeparse.timeparse import timeparse
+from crontab import CronTab
 
 LOG = logging.getLogger(__name__)
 FAWS_TAGS = [
@@ -133,10 +134,14 @@ def parse_snapshot_settings(snapshot_settings):
     retention_seconds = timeparse(snapshot_settings['snapshot']['retention'])
     retention = timedelta(seconds=retention_seconds)
 
-    frequency_seconds = timeparse(snapshot_settings['snapshot']['frequency'])
-    frequency = timedelta(seconds=frequency_seconds)
-
-    return retention, frequency
+    f_expr = snapshot_settings['snapshot']['frequency']
+    if is_timedelta_expression(f_expr):
+        frequency_seconds = timeparse(f_expr)
+        return retention, timedelta(seconds=frequency_seconds)
+    elif is_crontab_expression(f_expr):
+        return retention, CronTab(f_expr)
+    else:
+        raise Exception('Could not identify expression', f_expr)
 
 
 def validate_snapshot_settings(snapshot_settings):
@@ -355,3 +360,23 @@ def calculate_relevant_tags(instance_id, volume_id, region):
         })
 
     return returned_tags
+
+
+def is_crontab_expression(expr):
+    """True IFF expr is of type CronTab or can be used to create a CronTab"""
+    try:
+        return isinstance(expr, CronTab) or CronTab(expr) is not None
+    except:
+        return False
+
+    return False
+
+
+def is_timedelta_expression(expr):
+    """True IFF expr is of type timedelta or can be used to create a timedelta"""
+    try:
+        return isinstance(expr, timedelta) or timeparse(expr) is not None
+    except:
+        return False
+
+    return False

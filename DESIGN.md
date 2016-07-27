@@ -24,7 +24,8 @@ Note: All instances will be filtered by whether they are running or stopped, usi
   - Settings for each match + allowed values
     - Retention of snapshots (R days, weeks)
     - Minimum number of snapshots (M, integer, defaults to 1)
-    - Frequency of snapshots (F hours, days, weeks, minimum is 1 hour)
+    - Frequency of snapshots (F hours, days, weeks, minimum is 1 hour) *or* a
+    crontab expression [as described here](https://github.com/josiahcarlson/parse-crontab#description)
 
 [1] http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Client.describe_instances
 
@@ -43,6 +44,26 @@ Example of a JSON document from the DynamoDB table's `configuration` field (see 
   }
 }
 ```
+
+Another example with a crontab expression for midnight central time:
+```
+{
+  "match": {
+    "instance-id": "i-abc12345",
+    "tag:key": "tag-value",
+    "tag:Name": "legacy_server_name_*"
+  },
+  "snapshot": {
+    "retention": "4 days",
+    "minimum": 5,
+    "frequency": "0 5 * * ? *"
+  }
+}
+```
+
+Please be aware that crontab scheduling is best effort and only offers 15-minute
+precision; if lambda runs the job at 12:07am, your snapshot will happen then,
+even if the crontabe expression specifies midnight.
 
 ## Actual algorithms/lambda jobs
 

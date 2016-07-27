@@ -21,7 +21,7 @@
 #
 """Module for testing utils module."""
 
-import datetime
+from datetime import datetime, timedelta
 import dateutil
 import boto3
 from moto import mock_ec2, mock_sns
@@ -127,17 +127,39 @@ def test_flatten():
     assert output_arr == range(1, 8)
 
 
-def test_parse_snapshot_setting():
+def test_parse_snapshot_setting_timedelta():
     """Test for method of the same name"""
-    # def parse_snapshot_settings(snapshot_settings):
     snapshot_settings = {
         'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
         'match': {'tag:backup': 'yes'}
     }
     retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
 
-    assert retention == datetime.timedelta(5)  # 5 days
-    assert frequency == datetime.timedelta(0, 7200)  # 2 hours
+    assert retention == timedelta(5)  # 5 days
+    assert frequency == timedelta(0, 7200)  # 2 hours
+
+
+def test_parse_snapshot_setting_crontab():
+    """Test for method of the same name"""
+    snapshot_settings = {
+        'snapshot': {'minimum': 5, 'frequency': '30 * * * *', 'retention': '5 days'},
+        'match': {'tag:backup': 'yes'}
+    }
+    retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
+    assert retention == timedelta(5)  # 5 days
+
+    # generate some dates and times that we'll use to check crontab
+    eleven_twentyfive = datetime(2011, 7, 17, 11, 25)
+    eleven_thirtyfive = datetime(2011, 7, 17, 11, 35)
+
+    offset_soon = frequency.next(eleven_twentyfive, default_utc=True)
+
+    # 5 minutes from eleven_twentyfive
+    assert timedelta(seconds=offset_soon) == timedelta(seconds=300)
+
+    offset_later = frequency.next(eleven_thirtyfive, default_utc=True)
+    # 5 minutes from eleven_thirtyfive
+    assert timedelta(seconds=offset_later) == timedelta(seconds=3300)
 
 
 @mock_ec2
@@ -164,7 +186,7 @@ def test_snapshot_helper_methods():
     volume_id = utils.get_volumes(instance_id, region)[0]
 
     # make some snapshots that should be deleted today too
-    now = datetime.datetime.now(dateutil.tz.tzutc())
+    now = datetime.now(dateutil.tz.tzutc())
     delete_on = now.strftime('%Y-%m-%d')
 
     # verify no snapshots, then we take one, then verify there is one

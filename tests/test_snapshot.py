@@ -27,6 +27,7 @@ import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2
 from ebs_snapper import snapshot, dynamo, utils
 from ebs_snapper import mocks
+from crontab import CronTab
 
 
 @mock_ec2
@@ -210,3 +211,46 @@ def test_perform_snapshot_skipped(mocker):
 
     # test results (should not create a second snapshot)
     utils.snapshot_and_tag.assert_not_called()  # pylint: disable=E1103
+
+
+def test_should_perform_snapshot():
+    """Test for method of the same name."""
+    # should_perform_snapshot(frequency, now, volume_id, recent=None):
+
+    # good to have 'now'
+    now = datetime.datetime.now(dateutil.tz.tzutc())
+
+    # if recent is None, we should always snap
+    assert snapshot.should_perform_snapshot('0 1 ? * SUN', now, 'blah')
+
+    # don't snap too soon, an hour after the expected one
+    assert snapshot.should_perform_snapshot(
+        CronTab('0 1 ? * SUN'),  # sunday at 01:00 UTC
+        datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
+        'volume-foo',
+        recent={'StartTime': datetime.datetime(2016, 7, 24, 01, 05)}  # 2016-07-24 at 1:05 UTC
+        ) is False
+
+    # it's been a week! snap it!
+    assert snapshot.should_perform_snapshot(
+        CronTab('0 1 ? * SUN'),  # sunday at 01:00 UTC
+        datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
+        'volume-foo',
+        recent={'StartTime': datetime.datetime(2016, 7, 17, 01, 05)}  # 2016-07-17 at 1:05 UTC
+        )
+
+    # it's been forever, and we snap it hourly!
+    assert snapshot.should_perform_snapshot(
+        CronTab('@hourly'),  # sunday at 01:00 UTC
+        datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
+        'volume-foo',
+        recent={'StartTime': datetime.datetime(2016, 7, 17, 01, 05)}  # 2016-07-17 at 1:05 UTC
+        )
+
+    # it's been ten minutes, and we only snap it hourly -- stop it!
+    assert snapshot.should_perform_snapshot(
+        CronTab('@hourly'),  # sunday at 01:00 UTC
+        datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
+        'volume-foo',
+        recent={'StartTime': datetime.datetime(2016, 7, 24, 02, 35)}  # 2016-07-24 at 2:35 UTC
+        ) is False

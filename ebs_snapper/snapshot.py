@@ -24,6 +24,7 @@
 from __future__ import print_function
 import json
 import logging
+from datetime import timedelta
 import datetime
 import dateutil
 
@@ -127,19 +128,8 @@ def perform_snapshot(region, instance, snapshot_settings):
         recent = utils.most_recent_snapshot(volume_id, region)
         now = datetime.datetime.now(dateutil.tz.tzutc())
 
-        # if newest snapshot time + frequency < now(), do a snapshot
-        if recent is None:
-            LOG.info('Last snapshot for volume %s was not found', volume_id)
-            LOG.info('Next snapshot for volume %s should be due now', volume_id)
-        else:
-            LOG.info('Last snapshot for volume %s was at %s', volume_id, recent['StartTime'])
-            LOG.info('Next snapshot for volume %s should be due at %s',
-                     volume_id,
-                     (recent['StartTime'] + frequency))
-
         # snapshot due?
-        should_perform_snapshot = recent is None or (recent['StartTime'] + frequency) < now
-        if should_perform_snapshot:
+        if should_perform_snapshot(frequency, now, volume_id, recent):
             LOG.info('Performing snapshot for %s', volume_id)
         else:
             LOG.info('NOT Performing snapshot for %s', volume_id)
@@ -150,3 +140,36 @@ def perform_snapshot(region, instance, snapshot_settings):
         delete_on = delete_on_dt.strftime('%Y-%m-%d')
         expected_tags = utils.calculate_relevant_tags(instance, volume_id, region)
         utils.snapshot_and_tag(volume_id, delete_on, region, additional_tags=expected_tags)
+
+
+def should_perform_snapshot(frequency, now, volume_id, recent=None):
+    """if newest snapshot time + frequency < now(), do a snapshot"""
+    # if no recent snapshot, one is always due
+    if recent is None:
+        LOG.info('Last snapshot for volume %s was not found', volume_id)
+        LOG.info('Next snapshot for volume %s should be due now', volume_id)
+        return True
+    else:
+        LOG.info('Last snapshot for volume %s was at %s', volume_id, recent['StartTime'])
+
+    if utils.is_timedelta_expression(frequency):
+        LOG.info('Next snapshot for volume %s should be due at %s',
+                 volume_id,
+                 (recent['StartTime'] + frequency))
+        return (recent['StartTime'] + frequency) < now
+
+    if utils.is_crontab_expression(frequency):
+        # at recent['StartTime'], when should we have run next?
+        expected_next_seconds = frequency.next(recent['StartTime'], default_utc=True)
+        expected_next = recent['StartTime'] + timedelta(seconds=expected_next_seconds)
+
+        LOG.debug("Crontab expr:")
+        LOG.debug("\tnow(): %s", now)
+        LOG.debug("\trecent['StartTime']: %s", recent['StartTime'])
+        LOG.debug("\texpected_next_seconds: %s", expected_next_seconds)
+        LOG.debug("\texpected_next: %s", expected_next)
+
+        # if the next snapshot that should exist is before the current time
+        return expected_next < now
+
+    raise Exception('Could not determine if snapshot was due', frequency, recent)

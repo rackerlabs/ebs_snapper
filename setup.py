@@ -22,6 +22,7 @@ setup(
         'botocore',
         'boto3',
         'pytimeparse',
+        'crontab',
         'lambda_uploader'
     ],
     tests_require=[
