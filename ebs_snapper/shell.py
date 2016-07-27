@@ -161,11 +161,12 @@ def shell_snapshot(*args):
 def shell_deploy(*args):
     """Deploy this tool to a given account."""
     # call the snapshot cleanup method
-    deploy.deploy(aws_account_id=args[0].aws_account_id,
-                  no_build=args[0].no_build,
-                  no_upload=args[0].no_upload,
-                  no_stack=args[0].no_stack
-                  )
+    deploy.deploy(
+        aws_account_id=args[0].aws_account_id,
+        no_build=args[0].no_build,
+        no_upload=args[0].no_upload,
+        no_stack=args[0].no_stack
+        )
 
     LOG.info('Function shell_deploy completed')
 
