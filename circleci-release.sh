@@ -23,7 +23,12 @@ if [[ $release =~ ^v([0-9]+).([0-9]+).([0-9]+)$ ]]; then
   current_version=$(curl -s ${aws_endpoint}/LATEST)
   # If the version in S3 is not the latest then update it
   if [[ $current_version < $release ]]; then
+    echo "Releasing to S3 because $current_version < $release"
     echo $release > ${CIRCLE_ARTIFACTS}/LATEST
     s3artifact -bucket $AWS_BUCKET -name LATEST -acl public-read ${CIRCLE_ARTIFACTS}/LATEST
+  else
+    echo "Not releasing to S3 because $current_version >= $release"
   fi
+else
+  echo "Release $release did not match regex, not going to release"
 fi
