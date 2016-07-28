@@ -14,7 +14,7 @@ date=$(date -R)
 name=ebs_snapper.zip
 ebs-snapper deploy --no_stack --no_upload -a 1234 && mv ${name} ${CIRCLE_ARTIFACTS}/${name}
 s3artifact -bucket $AWS_BUCKET -name ${release}/${name} ${CIRCLE_ARTIFACTS}/${name}
-s3artifact -bucket $AWS_BUCKET -name latest/${name} ${CIRCLE_ARTIFACTS}/${name}
+s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 
 aws_endpoint=https://s3.amazonaws.com/${AWS_BUCKET}
 # Check for official release ie v0.5.1 not v0.5.1-kj34kdf
