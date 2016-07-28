@@ -45,7 +45,7 @@ Example of a JSON document from the DynamoDB table's `configuration` field (see 
 }
 ```
 
-Another example with a crontab expression for midnight central time:
+Another example with a crontab expression for midnight CDT:
 ```
 {
   "match": {
@@ -61,15 +61,22 @@ Another example with a crontab expression for midnight central time:
 }
 ```
 
-Please be aware that crontab scheduling is best effort and only offers 15-minute
+Some things to note about using crontab expressions:
+
+- crontab scheduling is best effort and only offers 15-minute
 precision; if lambda runs the job at 12:07am, your snapshot will happen then,
-even if the crontabe expression specifies midnight.
+even if the crontab expression specifies midnight.
+
+- crontab expressions are in UTC. If you say "0 6" it will be midnight Central
+in daylight savings time, but 11pm Central in standard time. This is important
+if a customer is expecting midnight backups, but for a few months a year, you've
+scheduled them for 11pm backups.
 
 ## Actual algorithms/lambda jobs
 
 ### Fan Out 1 - 'ebs_snapper_fanout_snap'
 
-This algorithm is pretty straightforward. We will loop through each region, enumerate running and stopped instances, and then trigger the snapshot job using (region, instance). This job will run hourly to trigger the snapshot.
+This algorithm is pretty straightforward. We will loop through each region, enumerate running and stopped instances, and then trigger the snapshot job using (region, instance). This job will run every 15 minutes to trigger the snapshot.
 
 ### Fan Out 2 - 'ebs_snapper_fanout_clean'
 
