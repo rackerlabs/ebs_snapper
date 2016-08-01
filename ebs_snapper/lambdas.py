@@ -61,6 +61,11 @@ def lambda_snapshot(event, context):
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
 
+    if not (event and event.get('Records')):
+        LOG.warn('lambda_snapshot must be invoked from an SNS topic')
+        LOG.info('Function lambda_snapshot completed unsuccessfully')
+        return
+
     records = event.get('Records')
     for record in records:
         sns = record.get('Sns')
@@ -80,6 +85,11 @@ def lambda_snapshot(event, context):
 
 def lambda_clean(event, context):
     """Clean up a single region when called by AWS Lambda."""
+
+    if not (event and event.get('Records')):
+        LOG.warn('lambda_clean must be invoked from an SNS topic')
+        LOG.info('Function lambda_clean completed unsuccessfully')
+        return
 
     records = event.get('Records')
     for record in records:
