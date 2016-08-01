@@ -31,7 +31,6 @@ import base64
 import boto3
 from botocore.exceptions import ClientError
 from lambda_uploader import package as lu_package
-from lambda_uploader import config as lu_config
 
 import ebs_snapper
 from ebs_snapper import utils
@@ -46,6 +45,8 @@ STACK_FATAL_STATUS = ['CREATE_FAILED', 'ROLLBACK_IN_PROGRESS',
                       'UPDATE_ROLLBACK_IN_PROGRESS',
                       'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS']
 STACK_SUCCESS_STATUS = ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
+IGNORED_UPLOADER_FILES = ["circle.yml", ".git", "/*.pyc", "\\.cache",
+                          "\\.json$", "\\.sh$", "\\.zip$"]
 
 
 def deploy(aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
@@ -57,28 +58,30 @@ def deploy(aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
         LOG.info("Building package using lambda-uploader")
         build_package(lambda_zip_filename)
 
-    # get security credentials from EC2 API
-    if aws_account_id is None:
-        found_owners = utils.get_owner_id()
-    else:
-        found_owners = [aws_account_id]
+    # get security credentials from EC2 API, if we are going to use them
+    needs_owner_id = (not no_upload) or (not no_stack)
+    if needs_owner_id:
+        if aws_account_id is None:
+            found_owners = utils.get_owner_id()
+        else:
+            found_owners = [aws_account_id]
 
-    if len(found_owners) <= 0:
-        LOG.warn('There are no instances I could find on this account.')
-        LOG.warn('I cannot figure out the account number without any instances.')
-        LOG.warn('Without the account number, I do not know what to name the S3 bucket or stack.')
-        LOG.warn('You may provide it on the commandline to bypass this error.')
-        return
-    else:
-        aws_account = found_owners[0]
+        if len(found_owners) <= 0:
+            LOG.warn('There are no instances I could find on this account.')
+            LOG.warn('I cannot figure out the account number without any instances.')
+            LOG.warn('Without account number, I do not know what to name the S3 bucket or stack.')
+            LOG.warn('You may provide it on the commandline to bypass this error.')
+            return
+        else:
+            aws_account = found_owners[0]
 
-    # freshen the S3 bucket
-    if not no_upload:
-        ebs_bucket_name = create_or_update_s3_bucket(aws_account, lambda_zip_filename)
+        # freshen the S3 bucket
+        if not no_upload:
+            ebs_bucket_name = create_or_update_s3_bucket(aws_account, lambda_zip_filename)
 
-    # freshen the stack
-    if not no_stack:
-        create_or_update_stack(aws_account, DEFAULT_REGION, ebs_bucket_name)
+        # freshen the stack
+        if not no_stack:
+            create_or_update_stack(aws_account, DEFAULT_REGION, ebs_bucket_name)
 
     # freshen up lambda jobs themselves
     if not no_upload:
@@ -108,14 +111,13 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
 
 def build_package(lambda_zip_filename):
     """Given this project, package it using lambda_uploader"""
-    cfg = lu_config.Config('.', None, role=None)
     pkg = lu_package.Package('.', lambda_zip_filename)
     pkg.clean_zipfile()
 
     # lambda-uploader step to build zip file
     pkg.extra_file('ebs_snapper/lambdas.py')
     pkg.requirements('requirements.txt')
-    pkg.build(cfg.ignore)
+    pkg.build(IGNORED_UPLOADER_FILES)
     pkg.clean_workspace()
 
 
