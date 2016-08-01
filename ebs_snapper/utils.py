@@ -23,6 +23,7 @@
 
 from __future__ import print_function
 import logging
+import collections
 from datetime import timedelta
 import boto3
 from pytimeparse.timeparse import timeparse
@@ -239,7 +240,8 @@ def snapshot_and_tag(volume_id, delete_on, region, additional_tags=None):
 
     full_tags = [{'Key': 'DeleteOn', 'Value': delete_on}]
     if additional_tags is not None:
-        full_tags.extend(additional_tags)
+        # we only get 10 tags, so restrict additional_tags to nine
+        full_tags.extend(additional_tags[:9])
 
     ec2 = boto3.client('ec2', region_name=region)
 
@@ -323,10 +325,15 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
     return None
 
 
-def calculate_relevant_tags(instance_id, volume_id, region):
+def calculate_relevant_tags(instance_id, volume_id, region, max_results=10):
     """Copy FAWS tags from instance to volume to snapshot, per product guide"""
 
-    calculated_tags = {}
+    # ordered dict of tags, because we care about order
+    calculated_tags = collections.OrderedDict()
+
+    # go ahead and throw all the billing tags in first
+    for billing_tag in FAWS_TAGS:
+        calculated_tags[billing_tag] = None
 
     # first figure out any instance tags
     if instance_id is not None:
@@ -337,8 +344,7 @@ def calculate_relevant_tags(instance_id, volume_id, region):
             # add relevant ones to the list
             for tag_ds in instance_tags:
                 tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
-                if tag_name in FAWS_TAGS:
-                    calculated_tags[tag_name] = tag_value
+                calculated_tags[tag_name] = tag_value
 
     # overwrite tag values from instances with volume tags/values
     if volume_id is not None:
@@ -349,11 +355,14 @@ def calculate_relevant_tags(instance_id, volume_id, region):
             # add relevant ones to the list
             for tag_ds in volume_tags:
                 tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
-                if tag_name in FAWS_TAGS:
-                    calculated_tags[tag_name] = tag_value
+                calculated_tags[tag_name] = tag_value
 
     returned_tags = []
     for n, v in calculated_tags.iteritems():
+        # skip any tags that were None/falsey, and don't go above max_results
+        if not v or len(returned_tags) >= max_results:
+            continue
+
         returned_tags.append({
             'Key': n,
             'Value': v

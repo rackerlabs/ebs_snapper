@@ -203,3 +203,68 @@ def test_snapshot_helper_methods():
 
     # check that if we pull them all, there's 6 there too
     assert len(utils.get_snapshots_by_volume(volume_id, region)) == 6
+
+
+@mock_ec2
+def test_calculate_relevant_tags():
+    """Confirm that tags are calculated correctly, and don't exceed 10"""
+    # client.create_tags()
+    region = 'us-west-2'
+    client = boto3.client('ec2', region_name=region)
+
+    # some instance tags (pad to fill it after)
+    instance_tags = [
+        {'Key': 'Foo', 'Value': 'Bar'},  # normal tag
+        {'Key': 'BusinessUnit', 'Value': 'Dept1'}  # billing tag
+        ]
+    for i in xrange(0, 8):
+        instance_tags.append({'Key': "foo-" + str(i), 'Value': "bar-" + str(i)})
+
+    # some volume tags (pad to fill it after)
+    volume_tags = [
+        {'Key': 'Foo', 'Value': 'Baz'},  # more normal tags
+        {'Key': 'BusinessUnit', 'Value': 'Dept2'},  # billing tag override
+        {'Key': 'Cluster', 'Value': 'Bank'}  # billing tag that won't override
+        ]
+    for i in xrange(0, 6):
+        volume_tags.append({'Key': "foo-" + str(i), 'Value': "bar-" + str(i+100)})
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+    client.create_tags(
+        Resources=[instance_id],
+        Tags=instance_tags
+    )
+
+    # figure out the EBS volume that came with our instance
+    volume_id = utils.get_volumes(instance_id, region)[0]
+    client.create_tags(
+        Resources=[volume_id],
+        Tags=volume_tags
+    )
+
+    # make some snapshots that should be deleted today
+    now = datetime.now(dateutil.tz.tzutc())
+    delete_on = now.strftime('%Y-%m-%d')
+
+    # create the snapshot
+    expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
+    utils.snapshot_and_tag(volume_id, delete_on, region, additional_tags=expected_tags)
+
+    # now confirm the tags are correct
+    snapshots = utils.get_snapshots_by_volume(volume_id, region)
+    created_snap = snapshots[0]
+
+    # print(client.describe_snapshots(SnapshotIds=[created_snap['SnapshotId']]))
+    expected_pairs = {
+        'BusinessUnit': 'Dept2',
+        'Cluster': 'Bank',
+        'DeleteOn': delete_on,
+        "Foo": "Baz"  # hard coded tag
+        # moto returns tags in very random order, for testing purposes,
+        # so I can't really test anything else with the foo-* tags here
+    }
+    print(created_snap['Tags'])
+
+    for k, v in expected_pairs.iteritems():
+        assert {'Key': k, 'Value': v} in created_snap['Tags']
