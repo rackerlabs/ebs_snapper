@@ -99,6 +99,22 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
     LOG.info("Uploading files into S3 bucket")
     upload_files = ['cloudformation.json', lambda_zip_filename]
     for filename in upload_files:
+
+        try:
+            # check if file in bucket is already there and up to date
+            object_summary = s3_client.get_object(Bucket=ebs_bucket_name, Key=filename)
+            local_hash = md5sum(filename).strip('"')
+            remote_hash = object_summary['ETag'].strip('"')
+
+            LOG.debug("Local file MD5 sum: " + local_hash)
+            LOG.debug("ETag from AWS: " + remote_hash)
+
+            if local_hash == remote_hash:
+                LOG.info("Skipping upload of %s, already up-to-date in S3", filename)
+                continue
+        except:
+            LOG.info("Failed to checksum local file and remote file, uploading it anyway")
+
         with open(filename, 'rb') as data:
             LOG.info('Uploading %s to bucket %s', filename, ebs_bucket_name)
             s3_client.put_object(Bucket=ebs_bucket_name, Key=filename, Body=data)
@@ -248,3 +264,12 @@ def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
         )
         LOG.info("Published new version for %s: %s",
                  function_name, publish_response['ResponseMetadata'])
+
+
+def md5sum(fname):
+    """Calculate the MD5 sum of a file"""
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
