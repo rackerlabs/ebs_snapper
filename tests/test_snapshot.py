@@ -170,6 +170,8 @@ def test_perform_snapshot(mocker):
 
     # test results
     utils.snapshot_and_tag.assert_any_call(  # pylint: disable=E1103
+        instance_id,
+        'ami-123abc',
         volume_id,
         delete_on,
         region,
@@ -201,7 +203,7 @@ def test_perform_snapshot_skipped(mocker):
     delete_on = delete_on_dt.strftime('%Y-%m-%d')
 
     # now take a snapshot, so we expect this next one to be skipped
-    utils.snapshot_and_tag(volume_id, delete_on, region)
+    utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
 
     # patch the final method that takes a snapshot
     mocker.patch('ebs_snapper.utils.snapshot_and_tag')
