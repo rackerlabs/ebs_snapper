@@ -134,7 +134,7 @@ def test_clean_snapshots_tagged(mocker):
     # make a snapshot that should be deleted today too
     now = datetime.datetime.now(dateutil.tz.tzutc())
     delete_on = now.strftime('%Y-%m-%d')
-    utils.snapshot_and_tag(volume_id, delete_on, region)
+    utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
     snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
 
     mocker.patch('ebs_snapper.utils.delete_snapshot')

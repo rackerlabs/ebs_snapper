@@ -24,6 +24,7 @@
 from __future__ import print_function
 import logging
 from datetime import timedelta
+import ebs_snapper
 import boto3
 from pytimeparse.timeparse import timeparse
 from crontab import CronTab
@@ -38,6 +39,7 @@ FAWS_TAGS = [
     "Cluster", "Role", "Customer", "Version",
     "Billing1", "Billing2", "Billing3", "Billing4", "Billing5"
 ]
+SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 
 
 def get_owner_id(region=None):
@@ -231,11 +233,18 @@ def build_snapshot_paginator(volume_id, region):
     return paginator.paginate(**operation_parameters)
 
 
-def snapshot_and_tag(volume_id, delete_on, region, additional_tags=None):
+def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, additional_tags=None):
     """Create snapshot and retention tag"""
 
     LOG.warn('Creating snapshot in %s of volume %s, valid until %s',
              region, volume_id, delete_on)
+
+    snapshot_description = SNAP_DESC_TEMPLATE.format(
+        instance_id,
+        ami_id,
+        volume_id,
+        ebs_snapper.__version__
+    )
 
     full_tags = [{'Key': 'DeleteOn', 'Value': delete_on}]
     if additional_tags is not None:
@@ -243,7 +252,10 @@ def snapshot_and_tag(volume_id, delete_on, region, additional_tags=None):
 
     ec2 = boto3.client('ec2', region_name=region)
 
-    snapshot = ec2.create_snapshot(VolumeId=volume_id)
+    snapshot = ec2.create_snapshot(
+        VolumeId=volume_id,
+        Description=snapshot_description[0:254]
+    )
 
     ec2.create_tags(
         Resources=[snapshot['SnapshotId']],

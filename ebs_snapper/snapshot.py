@@ -119,6 +119,7 @@ def perform_snapshot(region, instance, snapshot_settings):
 
     # grab the data about this instance id
     instance_data = utils.get_instance(instance, region)
+    ami_id = instance_data['ImageId']
 
     for dev in instance_data.get('BlockDeviceMappings', []):
         LOG.debug('Considering device %s', dev)
@@ -139,7 +140,13 @@ def perform_snapshot(region, instance, snapshot_settings):
         delete_on_dt = now + retention
         delete_on = delete_on_dt.strftime('%Y-%m-%d')
         expected_tags = utils.calculate_relevant_tags(instance, volume_id, region)
-        utils.snapshot_and_tag(volume_id, delete_on, region, additional_tags=expected_tags)
+        utils.snapshot_and_tag(
+            instance,
+            ami_id,
+            volume_id,
+            delete_on,
+            region,
+            additional_tags=expected_tags)
 
 
 def should_perform_snapshot(frequency, now, volume_id, recent=None):

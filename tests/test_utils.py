@@ -191,12 +191,12 @@ def test_snapshot_helper_methods():
 
     # verify no snapshots, then we take one, then verify there is one
     assert utils.most_recent_snapshot(volume_id, region) is None
-    utils.snapshot_and_tag(volume_id, delete_on, region)
+    utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
     assert utils.most_recent_snapshot(volume_id, region) is not None
 
     # make 5 more
     for i in range(0, 5):  # pylint: disable=unused-variable
-        utils.snapshot_and_tag(volume_id, delete_on, region)
+        utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
 
     # check the count is 6
     assert utils.count_snapshots(volume_id, region) == 6
