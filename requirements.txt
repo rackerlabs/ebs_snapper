@@ -3,4 +3,4 @@ botocore==1.4.7
 logging==0.4.9.6
 pytimeparse==1.1.5
 crontab==0.21.3
-lambda-uploader==1.0.0
+lambda-uploader==1.0.1

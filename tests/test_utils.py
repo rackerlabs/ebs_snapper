@@ -249,7 +249,12 @@ def test_calculate_relevant_tags():
 
     # create the snapshot
     expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
-    utils.snapshot_and_tag(volume_id, delete_on, region, additional_tags=expected_tags)
+    utils.snapshot_and_tag(instance_id,
+                           'ami-123abc',
+                           volume_id,
+                           delete_on,
+                           region,
+                           additional_tags=expected_tags)
 
     # now confirm the tags are correct
     snapshots = utils.get_snapshots_by_volume(volume_id, region)
