@@ -273,3 +273,42 @@ def test_calculate_relevant_tags():
 
     for k, v in expected_pairs.iteritems():
         assert {'Key': k, 'Value': v} in created_snap['Tags']
+
+
+@mock_ec2
+def test_find_deleteon_tags():
+    """test def find_deleteon_tags(region_name, cutoff_date, max_tags=10)"""
+
+    # client.create_tags()
+    region = 'us-west-2'
+
+    # make today's date
+    now = datetime.now(dateutil.tz.tzutc())
+
+    # create an instance and record the id
+    i = 0
+    created_instances = mocks.create_instances(region, count=15)
+
+    for instance_id in created_instances:
+        # some instance tags (pad to fill it after)
+        cutoff = now - timedelta(days=-i)
+        delete_on = cutoff.strftime('%Y-%m-%d')
+
+        # create the snapshot
+        volume_id = utils.get_volumes(instance_id, region)[0]
+        expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
+        utils.snapshot_and_tag(instance_id,
+                               'ami-123abc',
+                               volume_id,
+                               delete_on,
+                               region,
+                               additional_tags=expected_tags)
+
+        found_tags = utils.find_deleteon_tags(region_name=region,
+                                              cutoff_date=cutoff.date(), max_tags=20)
+
+        # for instance_id in created_instances:
+        assert len(found_tags) > 0
+        assert str(now.strftime('%Y-%m-%d')) in found_tags
+
+        i += 1
