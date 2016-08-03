@@ -375,6 +375,9 @@ def calculate_relevant_tags(instance_id, volume_id, region, max_results=10):
         if not v or len(returned_tags) >= max_results:
             continue
 
+        if 'aws:' in n:
+            continue
+
         returned_tags.append({
             'Key': n,
             'Value': v
