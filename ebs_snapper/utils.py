@@ -25,6 +25,7 @@ from __future__ import print_function
 import logging
 import collections
 from datetime import timedelta
+import dateutil
 import ebs_snapper
 import boto3
 from pytimeparse.timeparse import timeparse
@@ -404,3 +405,39 @@ def is_timedelta_expression(expr):
         return False
 
     return False
+
+
+def find_deleteon_tags(region_name, cutoff_date, max_tags=10):
+    """Get tags before cutoff date on snaps in region, max returned tags"""
+    ec2 = boto3.client('ec2', region_name=region_name)
+    results_found = []
+
+    filter_for_tags = [{'Name': 'resource-type', 'Values': ['snapshot']},
+                       {'Name': 'key', 'Values': ['DeleteOn']}]
+
+    tag_paginator = ec2.get_paginator('describe_tags')
+    operation_parameters = {'Filters': filter_for_tags}
+
+    # paginate -- there might be a lot of tags
+    for page in tag_paginator.paginate(**operation_parameters):
+        # if we don't get even a page of results, or missing hash key, skip
+        if not page and 'Tags' not in page:
+            continue
+
+        # iterate over each 'Tags' entry
+        for found_tag in page.get('Tags', []):
+
+            # don't bother parsing a tag we're already going to return
+            if found_tag['Value'] in results_found:
+                continue
+
+            # try to understand that tag
+            if dateutil.parser.parse(found_tag['Value']).date() <= cutoff_date:
+                results_found.append(found_tag['Value'])
+
+            # get out if we ever add an element and go over the max
+            if len(results_found) > max_tags:
+                break
+
+    # return max values at most, sorted by lexical (oldest!)
+    return sorted(results_found[:max_tags])

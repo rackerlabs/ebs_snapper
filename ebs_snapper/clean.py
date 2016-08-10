@@ -23,10 +23,10 @@
 
 from __future__ import print_function
 import datetime
-from datetime import timedelta
 import json
 import logging
 import boto3
+import dateutil
 from ebs_snapper import utils, dynamo
 
 LOG = logging.getLogger(__name__)
@@ -51,7 +51,9 @@ def send_fanout_message(region, topic_arn):
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
-def clean_snapshot(region, installed_region='us-east-1'):
+def clean_snapshot(region,
+                   installed_region='us-east-1',
+                   started_run=datetime.datetime.now(dateutil.tz.tzutc())):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
 
@@ -61,25 +63,45 @@ def clean_snapshot(region, installed_region='us-east-1'):
     LOG.info('Fetching all possible configuration rules from DynamoDB')
     configurations = dynamo.list_configurations(installed_region)
 
+    # go clean up 5 tags at a time, until they are all gone, and time it!
+    tags_seen = []
     deleted_count = 0
-    delete_on = datetime.date.today()
-    for i in range(0, 10):
-        deleted_count += clean_snapshots_tagged(
-            delete_on + timedelta(days=-i),
-            owner_ids,
-            region,
-            configurations)
+    batch_size = 5
+    elapsed_time = datetime.timedelta(0)
+    delete_on_date = datetime.date.today()
+    # go get initial batch, as long as there are tags and we still have time
+    tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
+    while len(tags_to_cleanup) > 0 and elapsed_time <= datetime.timedelta(minutes=4):
+        for target_tag in tags_to_cleanup:
+            tags_seen.append(target_tag)
+
+            deleted_count += clean_snapshots_tagged(
+                started_run,
+                target_tag,
+                owner_ids,
+                region,
+                configurations)
+
+        # another batch, more tags after the first batch_size
+        tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
+        # but don't try to do a tag if we already tried.
+        tags_to_cleanup = [x for x in tags_to_cleanup if x not in tags_seen]
+
+        elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - started_run
 
     if deleted_count <= 0:
         LOG.warn('No snapshots were cleaned up for the entire region %s', region)
 
 
-def clean_snapshots_tagged(delete_on, owner_ids, region, configurations, default_min_snaps=5):
-    """Remove snapshots where DeleteOn tag is delete_on datetime object"""
+def clean_snapshots_tagged(start_time, delete_on,
+                           owner_ids, region, configurations, default_min_snaps=5):
+    """Remove snapshots where DeleteOn tag is delete_on string"""
     ec2 = boto3.client('ec2', region_name=region)
+
+    # pull down snapshots we want to axe
     filters = [
         {'Name': 'tag-key', 'Values': ['DeleteOn']},
-        {'Name': 'tag-value', 'Values': [delete_on.strftime('%Y-%m-%d')]},
+        {'Name': 'tag-value', 'Values': [delete_on]},
     ]
     LOG.info("ec2.describe_snapshots with filters %s", filters)
     snapshot_response = ec2.describe_snapshots(OwnerIds=owner_ids, Filters=filters)
@@ -93,6 +115,11 @@ def clean_snapshots_tagged(delete_on, owner_ids, region, configurations, default
         return deleted_count
 
     for snap in snapshot_response['Snapshots']:
+        # be sure we haven't overrun the time to run
+        elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - start_time
+        if elapsed_time >= datetime.timedelta(minutes=4):
+            return deleted_count
+
         # attempt to identify the instance this applies to, so we can check minimums
         try:
             snapshot_volume = snap['VolumeId']
@@ -118,7 +145,7 @@ def clean_snapshots_tagged(delete_on, owner_ids, region, configurations, default
         except:
             # if we couldn't figure out a minimum of snapshots,
             # don't clean this up -- these could be orphaned snapshots
-            LOG.warn('Not deleting snapshot %s from %s, error encountered',
+            LOG.warn('Not deleting snapshot %s from %s, not enough snapshots remain',
                      snap['SnapshotId'], region)
             continue
 
