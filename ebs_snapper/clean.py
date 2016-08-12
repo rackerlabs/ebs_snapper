@@ -150,7 +150,6 @@ def clean_snapshots_tagged(start_time, delete_on,
             continue
 
         LOG.warn('Deleting snapshot %s from %s', snap['SnapshotId'], region)
-        utils.delete_snapshot(snap['SnapshotId'], region)
-        deleted_count += 1
+        deleted_count += utils.delete_snapshot(snap['SnapshotId'], region)
 
     return deleted_count

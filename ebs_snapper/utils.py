@@ -42,6 +42,7 @@ FAWS_TAGS = [
     "Billing1", "Billing2", "Billing3", "Billing4", "Billing5"
 ]
 SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
+ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse']
 
 
 def get_owner_id(region=None):
@@ -269,7 +270,22 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
 def delete_snapshot(snapshot_id, region):
     """Simple wrapper around deletes so we can mock them"""
     ec2 = boto3.client('ec2', region_name=region)
-    ec2.delete_snapshot(SnapshotId=snapshot_id)
+    try:
+        ec2.delete_snapshot(SnapshotId=snapshot_id)
+    except Exception as e:
+        LOG.warn('Failed to remove snapshot %s in region %s: %s',
+                 snapshot_id, region, str(e))
+
+        # if an error is okay, we'll emit the log but not blow up
+        for allowed_err in ALLOWED_SNAPSHOT_DELETE_FAILURES:
+            if allowed_err in str(e):
+                return 0
+
+        # an error that isn't whitelisted, throw an Exception
+        raise
+
+    # a success if it wasn't the whitelist
+    return 1
 
 
 def get_volumes(instance_id, region):
