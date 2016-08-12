@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Swallow errors on delete of a snapshot if the snapshot is in use by an AMI (#82)
+
 ## 0.3.0
 
 - Add the ability to clean up snapshots iteratively (#79)
