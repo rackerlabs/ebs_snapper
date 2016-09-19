@@ -86,7 +86,7 @@ def test_get_topic_arn():
     mocks.create_sns_topic(topic_name, region_name='us-west-2')
 
     # see if our code can find it!
-    found_arn = utils.get_topic_arn(topic_name)
+    found_arn = utils.get_topic_arn(topic_name, default_region='us-west-2')
     assert 'us-west-2' in found_arn
     assert topic_name in found_arn
 
