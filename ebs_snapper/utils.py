@@ -85,20 +85,16 @@ def region_contains_instances(region):
     return 'Reservations' in instances and len(instances['Reservations']) > 0
 
 
-def get_topic_arn(topic_name, default_region=None):
+def get_topic_arn(topic_name, default_region='us-east-1'):
     """Search for an SNS topic containing topic_name."""
-    if default_region is None:
-        regions = get_regions()
-    else:
-        regions = [default_region]
 
-    for region in regions:
-        client = boto3.client('sns', region_name=region)
-        topics = client.list_topics()
-        for topic in topics['Topics']:
-            splits = topic['TopicArn'].split(':')
-            if splits[5] == topic_name:
-                return topic['TopicArn']
+    client = boto3.client('sns', region_name=default_region)
+    topics = client.list_topics()
+    for topic in topics['Topics']:
+        splits = topic['TopicArn'].split(':')
+        if splits[5] == topic_name:
+            return topic['TopicArn']
+
     raise Exception('Could not find an SNS topic {}'.format(topic_name))
 
 
@@ -116,10 +112,10 @@ def convert_configurations_to_boto_filter(configuration):
     return results
 
 
-def sns_publish(TopicArn, Message):
+def sns_publish(TopicArn, Message, Region='us-east-1'):
     """Wrapper around SNS client so we can mock and unit test and assert it"""
-    sns_client = boto3.client('sns')
-    sns_client.publish(TopicArn=TopicArn, Message=Message)
+    client = boto3.client('sns', region_name=Region)
+    client.publish(TopicArn=TopicArn, Message=Message)
 
 
 def flatten(l):
