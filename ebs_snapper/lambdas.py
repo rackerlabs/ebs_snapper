@@ -62,17 +62,28 @@ def lambda_snapshot(event, context):
     logging.basicConfig(level=logging.INFO)
 
     if not (event and event.get('Records')):
-        LOG.warn('lambda_snapshot must be invoked from an SNS topic')
-        LOG.info('Function lambda_snapshot completed unsuccessfully')
+        LOG.warn('lambda_snapshot must be invoked from an SNS topic: %s', str(event))
         return
 
     records = event.get('Records')
     for record in records:
         sns = record.get('Sns')
         if not sns:
+            LOG.warn('lambda_snapshot missing an SNS section: %s', str(event))
             continue
+
         message = sns.get('Message')
+        if not message:
+            LOG.warn('lambda_snapshot missing a message section: %s', str(event))
+            continue
+
         message_json = json.loads(message)
+
+        if not ('region' in message_json and
+                'instance_id' in message_json and
+                'settings' in message_json):
+            LOG.warn('lambda_snapshot missing specific keys: %s', str(event))
+            continue
 
         # call the snapshot perform method
         snapshot.perform_snapshot(
@@ -80,7 +91,7 @@ def lambda_snapshot(event, context):
             message_json['instance_id'],
             message_json['settings'])
 
-    LOG.info('Function lambda_snapshot completed')
+        LOG.info('Function lambda_snapshot completed')
 
 
 def lambda_clean(event, context):
@@ -88,16 +99,25 @@ def lambda_clean(event, context):
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_clean must be invoked from an SNS topic')
-        LOG.info('Function lambda_clean completed unsuccessfully')
         return
 
     records = event.get('Records')
     for record in records:
         sns = record.get('Sns')
         if not sns:
+            LOG.warn('lambda_clean missing an SNS section: %s', str(event))
             continue
+
         message = sns.get('Message')
+        if not message:
+            LOG.warn('lambda_clean missing a message section: %s', str(event))
+            continue
+
         message_json = json.loads(message)
+
+        if 'region' not in message_json:
+            LOG.warn('lambda_clean missing specific keys: %s', str(event))
+            continue
 
         # call the snapshot cleanup method
         clean.clean_snapshot(message_json['region'])
