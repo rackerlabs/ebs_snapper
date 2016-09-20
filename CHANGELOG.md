@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- Be sure SNS methods take region arg (#86)
+- Check for SNS message inputs (#84)
+
 ## 0.3.1
 
 - Swallow errors on delete of a snapshot if the snapshot is in use by an AMI (#82)
