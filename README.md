@@ -120,6 +120,8 @@ As you can see, the `clean` subcommand does something similar to the snapshot on
 
 ### Configure subcommands
 
+**NOTE** By default, no configurations are created for you. By default, ebs_snapper will do nothing.
+
 List existing configurations stored for this account (will also output the aws_account_id):
 
 ```
