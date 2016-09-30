@@ -24,11 +24,13 @@
 from datetime import datetime, timedelta
 import dateutil
 import boto3
-from moto import mock_ec2, mock_sns
+from moto import mock_ec2, mock_sns, mock_iam, mock_sts
 from ebs_snapper import utils, mocks
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_get_owner_id():
     """Test for method of the same name."""
     # make some dummy instances
@@ -40,6 +42,8 @@ def test_get_owner_id():
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_get_regions_with_instances():
     """Test for method of the same name."""
     client = boto3.client('ec2', region_name='us-west-2')
@@ -52,6 +56,8 @@ def test_get_regions_with_instances():
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_get_regions_ignore_instances():
     """Test for method of the same name."""
     found_instances = utils.get_regions(must_contain_instances=False)
@@ -62,6 +68,8 @@ def test_get_regions_ignore_instances():
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_region_contains_instances():
     """Test for method of the same name."""
     client = boto3.client('ec2', region_name='us-west-2')
@@ -78,6 +86,8 @@ def test_region_contains_instances():
 
 @mock_ec2
 @mock_sns
+@mock_iam
+@mock_sts
 def test_get_topic_arn():
     """Test for method of the same name."""
     topic_name = 'please-dont-exist'
@@ -174,6 +184,8 @@ def test_get_instance():
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_snapshot_helper_methods():
     """Test for the snapshot helper methods"""
     # def count_snapshots(volume_id, region):
@@ -206,6 +218,8 @@ def test_snapshot_helper_methods():
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_calculate_relevant_tags():
     """Confirm that tags are calculated correctly, and don't exceed 10"""
     # client.create_tags()
@@ -260,7 +274,7 @@ def test_calculate_relevant_tags():
     snapshots = utils.get_snapshots_by_volume(volume_id, region)
     created_snap = snapshots[0]
 
-    # print(client.describe_snapshots(SnapshotIds=[created_snap['SnapshotId']]))
+    # check those expected tags
     expected_pairs = {
         'BusinessUnit': 'Dept2',
         'Cluster': 'Bank',
@@ -276,6 +290,8 @@ def test_calculate_relevant_tags():
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_find_deleteon_tags():
     """test def find_deleteon_tags(region_name, cutoff_date, max_tags=10)"""
 

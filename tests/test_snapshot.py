@@ -24,7 +24,7 @@
 import datetime
 import dateutil
 import boto3
-from moto import mock_ec2, mock_sns, mock_dynamodb2
+from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_sts, mock_iam
 from ebs_snapper import snapshot, dynamo, utils
 from ebs_snapper import mocks
 from crontab import CronTab
@@ -33,6 +33,8 @@ from crontab import CronTab
 @mock_ec2
 @mock_dynamodb2
 @mock_sns
+@mock_iam
+@mock_sts
 def test_perform_fanout_all_regions_snapshot(mocker):
     """Test for method of the same name."""
 
@@ -75,6 +77,8 @@ def test_perform_fanout_all_regions_snapshot(mocker):
 @mock_ec2
 @mock_dynamodb2
 @mock_sns
+@mock_iam
+@mock_sts
 def test_perform_fanout_by_region_snapshot(mocker):
     """Test for method of the same name."""
 
@@ -121,6 +125,8 @@ def test_perform_fanout_by_region_snapshot(mocker):
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_perform_snapshot(mocker):
     """Test for method of the same name."""
     # some default settings for this test
@@ -179,6 +185,8 @@ def test_perform_snapshot(mocker):
 
 
 @mock_ec2
+@mock_iam
+@mock_sts
 def test_perform_snapshot_skipped(mocker):
     """Test for method of the same name."""
     # some default settings for this test

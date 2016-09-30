@@ -24,13 +24,15 @@
 from __future__ import print_function
 import pytest
 from moto import mock_dynamodb2
-from moto import mock_ec2
+from moto import mock_ec2, mock_sts, mock_iam
 import boto3
 from ebs_snapper import dynamo, mocks
 
 
 @mock_ec2
 @mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_list_missing_configurations():
     """Test for method of the same name."""
 
@@ -52,6 +54,8 @@ def test_list_missing_configurations():
 
 @mock_ec2
 @mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_configurations():
     """Test for method for get, fetch, delete."""
 

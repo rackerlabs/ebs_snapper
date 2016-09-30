@@ -24,12 +24,13 @@
 from __future__ import print_function
 import logging
 import collections
+from time import sleep
 from datetime import timedelta
 import dateutil
-import ebs_snapper
 import boto3
 from pytimeparse.timeparse import timeparse
 from crontab import CronTab
+import ebs_snapper
 
 LOG = logging.getLogger(__name__)
 FAWS_TAGS = [
@@ -45,12 +46,58 @@ SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse']
 
 
-def get_owner_id(region=None):
-    """Get overall owner account id by finding an AWS instance"""
+def get_owner_id(region=None, context=None):
+    """Get overall owner account id using a bunch of tricks"""
     LOG.debug('get_owner_id')
+
+    # see if Lambda context is non-None
+    try:
+        if context is not None:
+            LOG.debug('get_owner_id: Lambda')
+            return [context.invoked_function_arn.split(':')[4]]
+    except:
+        pass
+
+    # maybe STS can tell us?
+    try:
+        LOG.debug('get_owner_id: STS')
+        sts_client = boto3.client('sts')
+        account_id = sts_client.get_caller_identity()["Account"]
+        return [str(account_id)]
+    except:
+        pass
+
+    # maybe we can look at another user's arn?
+    try:
+        LOG.debug('get_owner_id: STS another user')
+        iam_client = boto3.client('iam')
+        return [iam_client.list_users(MaxItems=1)["Users"][0]["Arn"].split(':')[4]]
+    except:
+        pass
+
+    # maybe we have API keys from boto3?
+    try:
+        LOG.debug('get_owner_id: IAM')
+        iam_client = boto3.client('iam')
+        return [iam_client.get_user()['User']['Arn'].split(':')[4]]
+    except:
+        pass
+
+    # if we're _inside_ an EC2 instance
+    try:
+        LOG.debug('get_owner_id: EC2 Metadata Service')
+        from botocore.vendored import requests
+        s_url = 'http://169.254.169.254/latest/meta-data/iam/info/'
+        return [requests.get(s_url, timeout=1).json()['InstanceProfileArn'].split(':')[4]]
+    except:
+        pass
+
+    # try using EC2 instances with account_ids for owners
     if region is not None:
+        LOG.debug('get_owner_id: EC2 region %s', region)
         regions = [region]
     else:
+        LOG.debug('get_owner_id: EC2 all regions')
         regions = get_regions(must_contain_instances=True)
 
     owners = []
@@ -228,7 +275,7 @@ def build_snapshot_paginator(volume_id, region):
     operation_parameters = {'Filters': [
         {'Name': 'volume-id', 'Values': [volume_id]}
     ]}
-
+    sleep(1)  # help w/ API limits
     return paginator.paginate(**operation_parameters)
 
 
