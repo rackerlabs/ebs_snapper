@@ -49,7 +49,7 @@ IGNORED_UPLOADER_FILES = ["circle.yml", ".git", "/*.pyc", "\\.cache",
                           "\\.json$", "\\.sh$", "\\.zip$"]
 
 
-def deploy(aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
+def deploy(aws_account_id=None, no_build=None, no_upload=None, no_stack=None, context=None):
     """Main function that does the deploy to an aws account"""
     # lambda-uploader configuration step
 
@@ -62,7 +62,7 @@ def deploy(aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
     needs_owner_id = (not no_upload) or (not no_stack)
     if needs_owner_id:
         if aws_account_id is None:
-            found_owners = utils.get_owner_id()
+            found_owners = utils.get_owner_id(context=context)
         else:
             found_owners = [aws_account_id]
 

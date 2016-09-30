@@ -35,15 +35,15 @@ from ebs_snapper import utils, dynamo
 LOG = logging.getLogger(__name__)
 
 
-def perform_fanout_all_regions():
+def perform_fanout_all_regions(context=None):
     """For every region, run the supplied function"""
     # get regions with instances running or stopped
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
-        perform_fanout_by_region(region=region)
+        perform_fanout_by_region(region=region, context=context)
 
 
-def perform_fanout_by_region(region, installed_region='us-east-1'):
+def perform_fanout_by_region(region, installed_region='us-east-1', context=None):
     """For a specific region, run this function for every matching instance"""
 
     sns_topic = utils.get_topic_arn('CreateSnapshotTopic', installed_region)
@@ -110,7 +110,7 @@ def send_fanout_message(instance_id, region, topic_arn, snapshot_settings):
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
-def perform_snapshot(region, instance, snapshot_settings):
+def perform_snapshot(region, instance, snapshot_settings, context=None):
     """Check the region and instance, and see if we should take any snapshots"""
     LOG.info('Reviewing snapshots in region %s on instance %s', region, instance)
 

@@ -24,7 +24,7 @@
 import json
 import datetime
 from datetime import timedelta
-from moto import mock_ec2, mock_sns, mock_dynamodb2
+from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_iam, mock_sts
 from ebs_snapper import snapshot, clean, utils, mocks, dynamo
 import dateutil
 
@@ -32,6 +32,8 @@ import dateutil
 @mock_ec2
 @mock_sns
 @mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_perform_fanout_all_regions_clean(mocker):
     """Test for method of the same name."""
     mocks.create_sns_topic('CleanSnapshotTopic')
@@ -55,6 +57,8 @@ def test_perform_fanout_all_regions_clean(mocker):
 
 @mock_ec2
 @mock_sns
+@mock_iam
+@mock_sts
 def test_send_fanout_message_clean(mocker):
     """Test for method of the same name."""
 
@@ -70,6 +74,8 @@ def test_send_fanout_message_clean(mocker):
 
 @mock_ec2
 @mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_clean_snapshot(mocker):
     """Test for method of the same name."""
     # def clean_snapshot(region):
@@ -111,6 +117,8 @@ def test_clean_snapshot(mocker):
 
 @mock_ec2
 @mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_clean_tagged_snapshots(mocker):
     """Test for method of the same name."""
     # default settings
@@ -162,6 +170,8 @@ def test_clean_tagged_snapshots(mocker):
 
 @mock_ec2
 @mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_clean_snapshots_tagged_timeout(mocker):
     """Test that we _DONT_ clean anything if runtime > 4 minutes"""
     # default settings

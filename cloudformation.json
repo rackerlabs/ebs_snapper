@@ -145,10 +145,10 @@
         "MetricName" : "Errors",
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
-        "EvaluationPeriods" : "2",
+        "EvaluationPeriods" : "6",
         "Period" : "3600",
         "Statistic" : "Sum",
-        "Threshold" : "2",
+        "Threshold" : "3",
         "Dimensions" : [{
             "Name" : "FunctionName",
             "Value" : { "Ref" : "CreateSnapshotFunction" }

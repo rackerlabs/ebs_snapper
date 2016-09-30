@@ -22,6 +22,7 @@
 """Module for cleaning up snapshots."""
 
 from __future__ import print_function
+from time import sleep
 import datetime
 import json
 import logging
@@ -32,7 +33,7 @@ from ebs_snapper import utils, dynamo
 LOG = logging.getLogger(__name__)
 
 
-def perform_fanout_all_regions():
+def perform_fanout_all_regions(context=None):
     """For every region, run the supplied function"""
     # get regions, regardless of instances
     sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
@@ -43,7 +44,7 @@ def perform_fanout_all_regions():
         send_fanout_message(region=region, topic_arn=sns_topic)
 
 
-def send_fanout_message(region, topic_arn):
+def send_fanout_message(region, topic_arn, context=None):
     """Publish an SNS message to topic_arn that specifies a region to review snapshots on"""
     message = json.dumps({'region': region})
     LOG.info('send_fanout_message: %s', message)
@@ -53,11 +54,12 @@ def send_fanout_message(region, topic_arn):
 
 def clean_snapshot(region,
                    installed_region='us-east-1',
-                   started_run=datetime.datetime.now(dateutil.tz.tzutc())):
+                   started_run=datetime.datetime.now(dateutil.tz.tzutc()),
+                   context=None):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
 
-    owner_ids = utils.get_owner_id(region)
+    owner_ids = utils.get_owner_id(region, context=context)
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
 
     LOG.info('Fetching all possible configuration rules from DynamoDB')
@@ -75,6 +77,10 @@ def clean_snapshot(region,
         for target_tag in tags_to_cleanup:
             tags_seen.append(target_tag)
 
+            # always sleep for 5 seconds before we clean up another chunk of snapshots
+            sleep(5)  # help with API limit
+
+            # now go get 'em!
             deleted_count += clean_snapshots_tagged(
                 started_run,
                 target_tag,
@@ -104,6 +110,7 @@ def clean_snapshots_tagged(start_time, delete_on,
         {'Name': 'tag-value', 'Values': [delete_on]},
     ]
     LOG.info("ec2.describe_snapshots with filters %s", filters)
+    sleep(1)  # help with API limit
     snapshot_response = ec2.describe_snapshots(OwnerIds=owner_ids, Filters=filters)
     LOG.info("ec2.describe_snapshots fin")
 
@@ -119,6 +126,7 @@ def clean_snapshots_tagged(start_time, delete_on,
         elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - start_time
         if elapsed_time >= datetime.timedelta(minutes=4):
             return deleted_count
+        sleep(1)  # help with API limit
 
         # attempt to identify the instance this applies to, so we can check minimums
         try:
