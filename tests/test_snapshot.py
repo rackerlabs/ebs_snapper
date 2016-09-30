@@ -71,7 +71,8 @@ def test_perform_fanout_all_regions_snapshot(mocker):
 
     # fan out, and be sure we touched every instance we created before
     for r in dummy_regions:
-        snapshot.perform_fanout_by_region.assert_any_call(region=r)  # pylint: disable=E1103
+        snapshot.perform_fanout_by_region.assert_any_call(
+            region=r, context=None)  # pylint: disable=E1103
 
 
 @mock_ec2
