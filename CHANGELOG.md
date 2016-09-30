@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+- Work to reduce alarms to more reasonable levels (#88)
+- Clarify that no configs are created (#87)
+
 ## 0.3.2
 
 - Be sure SNS methods take region arg (#86)
