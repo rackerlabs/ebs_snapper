@@ -15,7 +15,7 @@ This project is provided under the Apache License, version 2. Pull requests and 
 
 ## Getting support
 
-This software is provided to you with no warranty beyond the Apache License v2.0. If you are a [Rackspace](http://rackspace.com) customer, and you have additional questions or require additional assistance with this project, please open a support ticket.
+This software is provided to you as-is with no warranty or support, under the Apache License v2.0. If you are a [Rackspace Fanatical Support for AWS](http://rackspace.com) customer, and you have additional questions or require additional assistance with this project, please open a support ticket.
 
 ## Installing this software on your workstation
 
@@ -32,7 +32,7 @@ pip install -e .
 
 ## Installing the ebs-snapper into an AWS Account
 
-Use `faws-cli env` with the appropriate account you'd like to install this software into, and then use the `deploy` command (I highly recommend using `-V` on this command) -- example run, hiding boto output:
+Set environment variables for the appropriate account you'd like to install this software into, and then use the `deploy` command (I highly recommend using `-V` on this command) -- example run, hiding boto output:
 ```
 $ ebs-snapper -V deploy --no_build 2>&1 | grep -v botocore
 INFO:ebs_snapper.deploy:Building package using lambda-uploader
@@ -64,7 +64,7 @@ The first time you run deploy, this will only create the stack in CloudFormation
 
 If you need to manually install this software, you may follow these steps:
 
-1. Create an S3 bucket in "US General" / "us-east-1" and name it `ebs-snapper-<FAWS_ACCOUNT_ID>`
+1. Create an S3 bucket in "US General" / "us-east-1" and name it `ebs-snapper-<AWS_ACCOUNT_ID>`
 1. Run lambda-uploader to build an ebs_snapper.zip file:
 ```
 lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .

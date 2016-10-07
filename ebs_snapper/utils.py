@@ -33,7 +33,7 @@ from crontab import CronTab
 import ebs_snapper
 
 LOG = logging.getLogger(__name__)
-FAWS_TAGS = [
+AWS_TAGS = [
     "Name",
     "BusinessUnit", "Group",
     "Department", "CostCenter",
@@ -398,13 +398,13 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
 
 
 def calculate_relevant_tags(instance_id, volume_id, region, max_results=10):
-    """Copy FAWS tags from instance to volume to snapshot, per product guide"""
+    """Copy AWS tags from instance to volume to snapshot, per product guide"""
 
     # ordered dict of tags, because we care about order
     calculated_tags = collections.OrderedDict()
 
     # go ahead and throw all the billing tags in first
-    for billing_tag in FAWS_TAGS:
+    for billing_tag in AWS_TAGS:
         calculated_tags[billing_tag] = None
 
     # first figure out any instance tags
