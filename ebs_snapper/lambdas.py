@@ -85,11 +85,15 @@ def lambda_snapshot(event, context):
             LOG.warn('lambda_snapshot missing specific keys: %s', str(event))
             continue
 
+        if 'instance_data' in message_json:
+            opt_instance_data = message_json['instance_data']
+
         # call the snapshot perform method
         snapshot.perform_snapshot(
             message_json['region'],
             message_json['instance_id'],
             message_json['settings'],
+            instance_data=opt_instance_data,
             context=context)
 
         LOG.info('Function lambda_snapshot completed')

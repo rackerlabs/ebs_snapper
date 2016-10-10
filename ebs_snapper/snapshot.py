@@ -96,29 +96,37 @@ def send_message_instances(region, sns_topic, configuration_snapshot, filters):
                 instance_id=instance['InstanceId'],
                 region=region,
                 topic_arn=sns_topic,
-                snapshot_settings=configuration_snapshot)
+                snapshot_settings=configuration_snapshot,
+                instance_data=instance)
 
 
-def send_fanout_message(instance_id, region, topic_arn, snapshot_settings):
+def send_fanout_message(instance_id, region, topic_arn, snapshot_settings, instance_data=None):
     """Publish an SNS message to topic_arn that specifies an instance and region to review"""
-    message = json.dumps({'instance_id': instance_id,
-                          'region': region,
-                          'settings': snapshot_settings})
+    data_hash = {'instance_id': instance_id,
+                 'region': region,
+                 'settings': snapshot_settings}
+
+    if instance_data:
+        data_hash['instance_data'] = sanitize_serializable(instance_data)
+
+    message = json.dumps(data_hash)
 
     LOG.info('send_fanout_message: %s', message)
 
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
-def perform_snapshot(region, instance, snapshot_settings, context=None):
+def perform_snapshot(region, instance, snapshot_settings, instance_data=None, context=None):
     """Check the region and instance, and see if we should take any snapshots"""
     LOG.info('Reviewing snapshots in region %s on instance %s', region, instance)
 
     # parse out snapshot settings
     retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
 
-    # grab the data about this instance id
-    instance_data = utils.get_instance(instance, region)
+    # grab the data about this instance id, if we don't already have it
+    if instance_data is None or 'BlockDeviceMappings' not in instance_data:
+        instance_data = utils.get_instance(instance, region)
+
     ami_id = instance_data['ImageId']
 
     for dev in instance_data.get('BlockDeviceMappings', []):
@@ -180,3 +188,28 @@ def should_perform_snapshot(frequency, now, volume_id, recent=None):
         return expected_next < now
 
     raise Exception('Could not determine if snapshot was due', frequency, recent)
+
+
+def sanitize_serializable(instance_data):
+    """Check every value is serializable, build new dict with safe values"""
+    output = {}
+
+    # we can't serialize all values, so just grab the ones we can
+    for k, v in instance_data.iteritems():
+        can_ser = can_serialize_json(k, v)
+        if not can_ser:
+            continue
+
+        output[k] = v
+
+    return output
+
+
+def can_serialize_json(key, value):
+    """Return true if it's safe to pass this to json.dumps()"""
+
+    try:
+        json.dumps({key: value})
+        return True
+    except:
+        return False

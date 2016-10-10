@@ -149,11 +149,15 @@ def shell_snapshot(*args):
     """Check for snapshots, executing if needed, like lambda version."""
     message_json = json.loads(args[0].message)
 
+    if 'instance_data' in message_json:
+        d = message_json['instance_data']
+
     # call the snapshot perform method
     snapshot.perform_snapshot(
         message_json['region'],
         message_json['instance_id'],
-        message_json['settings'])
+        message_json['settings'],
+        instance_data=d)
 
     LOG.info('Function shell_snapshot completed')
 
