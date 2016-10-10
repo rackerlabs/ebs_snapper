@@ -90,18 +90,18 @@ def test_perform_fanout_by_region_snapshot(mocker):
     dummy_regions = ['us-west-2', 'us-east-1']
 
     # make some dummy instances in two regions
-    instance_maps = {}
+    region_map = {}
     for dummy_region in dummy_regions:
         client = boto3.client('ec2', region_name=dummy_region)
         create_results = client.run_instances(ImageId='ami-123abc', MinCount=5, MaxCount=5)
         for instance_data in create_results['Instances']:
-            instance_maps[instance_data['InstanceId']] = dummy_region
+            region_map[instance_data['InstanceId']] = dummy_region
 
     # need to filter instances, so need dynamodb present
     mocks.create_dynamodb('us-east-1')
     config_data = {
         "match": {
-            "instance-id": instance_maps.keys()
+            "instance-id": region_map.keys()
         },
         "snapshot": {
             "retention": "4 days",
@@ -117,12 +117,16 @@ def test_perform_fanout_by_region_snapshot(mocker):
     # fan out, and be sure we touched every instance we created before
     snapshot.perform_fanout_all_regions()
 
-    for key, value in instance_maps.iteritems():
+    print(snapshot.send_fanout_message.mock_calls)
+    for key, value in region_map.iteritems():
+        # refetch the instance data, to be sure it matches at call time
+        my_instance_data = utils.get_instance(key, value)
         snapshot.send_fanout_message.assert_any_call(  # pylint: disable=E1103
             instance_id=key,
             region=value,
             topic_arn=expected_sns_topic,
-            snapshot_settings=config_data)
+            snapshot_settings=config_data,
+            instance_data=my_instance_data)
 
 
 @mock_ec2
