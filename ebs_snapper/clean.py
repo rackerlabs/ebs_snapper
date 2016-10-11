@@ -37,19 +37,22 @@ def perform_fanout_all_regions(context=None):
     """For every region, run the supplied function"""
     # get regions, regardless of instances
     sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
-    LOG.info('perform_fanout_all_regions using SNS topic %s', sns_topic)
+    LOG.debug('perform_fanout_all_regions using SNS topic %s', sns_topic)
 
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
         send_fanout_message(region=region, topic_arn=sns_topic)
 
+    LOG.info('Function clean_perform_fanout_all_regions completed')
+
 
 def send_fanout_message(region, topic_arn, context=None):
     """Publish an SNS message to topic_arn that specifies a region to review snapshots on"""
     message = json.dumps({'region': region})
-    LOG.info('send_fanout_message: %s', message)
+    LOG.debug('send_fanout_message: %s', message)
 
     utils.sns_publish(TopicArn=topic_arn, Message=message)
+    LOG.info('Function clean_send_fanout_message completed')
 
 
 def clean_snapshot(region,
@@ -62,23 +65,32 @@ def clean_snapshot(region,
     owner_ids = utils.get_owner_id(region, context=context)
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
 
-    LOG.info('Fetching all possible configuration rules from DynamoDB')
     configurations = dynamo.list_configurations(installed_region)
+    LOG.info('Fetched all possible configuration rules from DynamoDB')
 
     # go clean up 5 tags at a time, until they are all gone, and time it!
     tags_seen = []
     deleted_count = 0
     batch_size = 5
-    elapsed_time = datetime.timedelta(0)
+
     delete_on_date = datetime.date.today()
     # go get initial batch, as long as there are tags and we still have time
     tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
-    while len(tags_to_cleanup) > 0 and elapsed_time <= datetime.timedelta(minutes=4):
+    while len(tags_to_cleanup) > 0 and not timeout_check(started_run, 'clean_snapshot'):
+        LOG.info('Pulling %s (batch size) tags to clean up, found: %s',
+                 batch_size,
+                 str(tags_to_cleanup))
+
         for target_tag in tags_to_cleanup:
+            LOG.info('Loop in clean_snapshot, looking at tag %s', target_tag)
             tags_seen.append(target_tag)
 
             # always sleep for 5 seconds before we clean up another chunk of snapshots
             sleep(5)  # help with API limit
+
+            if timeout_check(started_run, 'clean_snapshot'):
+                LOG.warn('clean_snapshot timed out')
+                break
 
             # now go get 'em!
             deleted_count += clean_snapshots_tagged(
@@ -88,18 +100,20 @@ def clean_snapshot(region,
                 region,
                 configurations)
 
+        # check before we look for newer tags to cleanup, that we're good to run
+        if timeout_check(started_run, 'Timed out while cleaning snapshots'):
+            LOG.warn('clean_snapshot timed out')
+            break
+
         # another batch, more tags after the first batch_size
         tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
         # but don't try to do a tag if we already tried.
         tags_to_cleanup = [x for x in tags_to_cleanup if x not in tags_seen]
 
-        elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - started_run
-
     if deleted_count <= 0:
         LOG.warn('No snapshots were cleaned up for the entire region %s', region)
 
-    if elapsed_time > datetime.timedelta(minutes=4):
-        LOG.warn('Timed out while cleaning snapshots for region %s: %s', region, str(elapsed_time))
+    LOG.info('Function clean_snapshot completed')
 
 
 def clean_snapshots_tagged(start_time, delete_on,
@@ -112,10 +126,10 @@ def clean_snapshots_tagged(start_time, delete_on,
         {'Name': 'tag-key', 'Values': ['DeleteOn']},
         {'Name': 'tag-value', 'Values': [delete_on]},
     ]
-    LOG.info("ec2.describe_snapshots with filters %s", filters)
+    LOG.debug("ec2.describe_snapshots with filters %s", filters)
     sleep(1)  # help with API limit
     snapshot_response = ec2.describe_snapshots(OwnerIds=owner_ids, Filters=filters)
-    LOG.info("ec2.describe_snapshots fin")
+    LOG.debug("ec2.describe_snapshots fin")
 
     deleted_count = 0
     if 'Snapshots' not in snapshot_response or len(snapshot_response['Snapshots']) <= 0:
@@ -123,14 +137,17 @@ def clean_snapshots_tagged(start_time, delete_on,
                   owner_ids,
                   filters)
         return deleted_count
+    else:
+        LOG.info('Examining %s snapshots to clean delete_on=%s, region=%s',
+                 str(len(snapshot_response['Snapshots'])),
+                 delete_on,
+                 region)
 
     for snap in snapshot_response['Snapshots']:
         # be sure we haven't overrun the time to run
-        elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - start_time
-        if elapsed_time >= datetime.timedelta(minutes=4):
-            LOG.warn('Timed out while cleaning snapshots: %s', str(elapsed_time))
-            LOG.warn('clean_snapshots_tagged region %s and DeleteOn: %s', region, delete_on)
+        if timeout_check(start_time, 'clean_snapshots_tagged snap loop'):
             return deleted_count
+
         sleep(1)  # help with API limit
 
         # attempt to identify the instance this applies to, so we can check minimums
@@ -165,4 +182,15 @@ def clean_snapshots_tagged(start_time, delete_on,
         LOG.warn('Deleting snapshot %s from %s', snap['SnapshotId'], region)
         deleted_count += utils.delete_snapshot(snap['SnapshotId'], region)
 
+    LOG.info('Function clean_snapshots_tagged completed, deleted count: %s', str(deleted_count))
     return deleted_count
+
+
+def timeout_check(start_time, place):
+    """Return True if start_time was more than 4 minutes ago"""
+    elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - start_time
+    if elapsed_time >= datetime.timedelta(minutes=4):
+        LOG.warn('%s timed out', place)
+        return True
+
+    return False

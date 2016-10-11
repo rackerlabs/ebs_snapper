@@ -122,6 +122,7 @@ def main(arv=None):
     try:
         args = parser.parse_args()
         logging.basicConfig(level=args.loglevel)
+        LOG.setLevel(args.loglevel)
         args.func(args)
     except Exception:  # pylint: disable=broad-except
         print('Unexpected error. Please report this traceback.', file=sys.stderr)

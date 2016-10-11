@@ -111,7 +111,7 @@ def send_fanout_message(instance_id, region, topic_arn, snapshot_settings, insta
 
     message = json.dumps(data_hash)
 
-    LOG.info('send_fanout_message: %s', message)
+    LOG.debug('send_fanout_message: %s', message)
 
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
