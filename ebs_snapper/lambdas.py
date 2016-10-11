@@ -36,6 +36,7 @@ def lambda_fanout_snapshot(event, context):
 
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
+    LOG.setLevel(logging.INFO)
 
     # for every region and every instance, send to this function
     snapshot.perform_fanout_all_regions(context=context)
@@ -48,6 +49,7 @@ def lambda_fanout_clean(event, context):
 
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
+    LOG.setLevel(logging.INFO)
 
     # for every region, send to this function
     clean.perform_fanout_all_regions(context=context)
@@ -60,6 +62,7 @@ def lambda_snapshot(event, context):
 
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
+    LOG.setLevel(logging.INFO)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_snapshot must be invoked from an SNS topic: %s', str(event))
@@ -101,6 +104,10 @@ def lambda_snapshot(event, context):
 
 def lambda_clean(event, context):
     """Clean up a single region when called by AWS Lambda."""
+
+    # baseline logging for lambda
+    logging.basicConfig(level=logging.INFO)
+    LOG.setLevel(logging.INFO)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_clean must be invoked from an SNS topic')
