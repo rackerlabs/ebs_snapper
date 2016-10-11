@@ -43,7 +43,7 @@ AWS_TAGS = [
     "Billing1", "Billing2", "Billing3", "Billing4", "Billing5"
 ]
 SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
-ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse']
+ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
 
 
 def get_owner_id(region=None, context=None):
