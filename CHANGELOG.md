@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.5
+
+- Log when we go over the 4 minute timer for cleaning snapshots (#7)
+- Don't error if snapshot missing (#7)
+
 ## 0.3.4
 
 - Pass existing EC2 instance data to SNS instead of looking it up again (#6)
