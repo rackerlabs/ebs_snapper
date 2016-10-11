@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.4
+
+- Pass existing EC2 instance data to SNS instead of looking it up again (#6)
+- Release as open source (issue numbers are reset to zero)
+
 ## 0.3.3
 
 - Work to reduce alarms to more reasonable levels (#88)
