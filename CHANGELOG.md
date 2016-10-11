@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.6
+
+- Check for runtime length in more places (#9)
+- Fix logging level issue (#8)
+
 ## 0.3.5
 
 - Log when we go over the 4 minute timer for cleaning snapshots (#7)
