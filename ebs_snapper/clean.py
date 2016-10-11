@@ -98,6 +98,9 @@ def clean_snapshot(region,
     if deleted_count <= 0:
         LOG.warn('No snapshots were cleaned up for the entire region %s', region)
 
+    if elapsed_time > datetime.timedelta(minutes=4):
+        LOG.warn('Timed out while cleaning snapshots for region %s: %s', region, str(elapsed_time))
+
 
 def clean_snapshots_tagged(start_time, delete_on,
                            owner_ids, region, configurations, default_min_snaps=5):
@@ -125,6 +128,8 @@ def clean_snapshots_tagged(start_time, delete_on,
         # be sure we haven't overrun the time to run
         elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - start_time
         if elapsed_time >= datetime.timedelta(minutes=4):
+            LOG.warn('Timed out while cleaning snapshots: %s', str(elapsed_time))
+            LOG.warn('clean_snapshots_tagged region %s and DeleteOn: %s', region, delete_on)
             return deleted_count
         sleep(1)  # help with API limit
 

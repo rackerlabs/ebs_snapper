@@ -279,7 +279,6 @@ def test_calculate_relevant_tags():
         'BusinessUnit': 'Dept2',
         'Cluster': 'Bank',
         'DeleteOn': delete_on,
-        "Foo": "Baz"  # hard coded tag
         # moto returns tags in very random order, for testing purposes,
         # so I can't really test anything else with the foo-* tags here
     }
