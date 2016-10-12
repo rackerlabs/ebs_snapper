@@ -141,7 +141,7 @@ def test_clean_tagged_snapshots(mocker):
     dynamo.store_configuration(region, 'foo', '111122223333', config_data)
 
     # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes(instance_id, region)[0]
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
 
     # make a snapshot that should be deleted today too
     now = datetime.datetime.now(dateutil.tz.tzutc())
@@ -194,7 +194,7 @@ def test_clean_snapshots_tagged_timeout(mocker):
     dynamo.store_configuration(region, 'foo', '111122223333', config_data)
 
     # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes(instance_id, region)[0]
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
 
     # make a snapshot that should be deleted today too
     now = datetime.datetime.now(dateutil.tz.tzutc())

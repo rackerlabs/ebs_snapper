@@ -22,6 +22,7 @@
 """Module for doing EBS snapshots."""
 
 from __future__ import print_function
+from time import sleep
 import json
 import logging
 from datetime import timedelta
@@ -40,6 +41,7 @@ def perform_fanout_all_regions(context=None):
     # get regions with instances running or stopped
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
+        sleep(5) # API rate limiting help
         perform_fanout_by_region(region=region, context=context)
 
 
@@ -56,7 +58,7 @@ def perform_fanout_by_region(region, installed_region='us-east-1', context=None)
 
     # for every configuration
     for config in configurations:
-
+        sleep(5) # API rate limiting help
         # if it's missing the match section, ignore it
         if not utils.validate_snapshot_settings(config):
             continue
@@ -92,6 +94,7 @@ def send_message_instances(region, sns_topic, configuration_snapshot, filters):
 
     for reservation in instances.get('Reservations', []):
         for instance in reservation.get('Instances', []):
+            sleep(5) # API rate limiting help
             send_fanout_message(
                 instance_id=instance['InstanceId'],
                 region=region,

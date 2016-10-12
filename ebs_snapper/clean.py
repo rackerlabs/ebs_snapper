@@ -41,6 +41,7 @@ def perform_fanout_all_regions(context=None):
 
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
+        sleep(5) # API limit relief
         send_fanout_message(region=region, topic_arn=sns_topic)
 
     LOG.info('Function clean_perform_fanout_all_regions completed')

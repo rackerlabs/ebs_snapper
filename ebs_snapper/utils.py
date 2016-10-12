@@ -232,7 +232,7 @@ def count_snapshots(volume_id, region):
     """count how many snapshots exist for this volume"""
     count = 0
 
-    page_iterator = build_snapshot_paginator(volume_id, region)
+    page_iterator = build_snapshot_paginator([volume_id], region)
     for page in page_iterator:
         count += len(page['Snapshots'])
 
@@ -243,7 +243,7 @@ def most_recent_snapshot(volume_id, region):
     """find and return the most recent snapshot"""
     recent = {}
 
-    page_iterator = build_snapshot_paginator(volume_id, region)
+    page_iterator = build_snapshot_paginator([volume_id], region)
     for page in page_iterator:
         for s in page['Snapshots']:
             if recent == {} or recent['StartTime'] < s['StartTime']:
@@ -259,7 +259,7 @@ def get_snapshots_by_volume(volume_id, region):
     """Return snapshots by volume and region"""
     snapshot_list = []
 
-    page_iterator = build_snapshot_paginator(volume_id, region)
+    page_iterator = build_snapshot_paginator([volume_id], region)
     for page in page_iterator:
         for s in page['Snapshots']:
             snapshot_list.append(s)
@@ -267,13 +267,25 @@ def get_snapshots_by_volume(volume_id, region):
     return snapshot_list
 
 
-def build_snapshot_paginator(volume_id, region):
+def get_snapshots_by_volumes(volume_list, region):
+    """Return snapshots by volume and region"""
+    snapshot_list = []
+
+    page_iterator = build_snapshot_paginator(volume_list, region)
+    for page in page_iterator:
+        for s in page['Snapshots']:
+            snapshot_list.append(s)
+
+    return snapshot_list
+
+
+def build_snapshot_paginator(volume_list, region):
     """Utility function to make pagination of snapshots easier"""
     ec2 = boto3.client('ec2', region_name=region)
 
     paginator = ec2.get_paginator('describe_snapshots')
     operation_parameters = {'Filters': [
-        {'Name': 'volume-id', 'Values': [volume_id]}
+        {'Name': 'volume-id', 'Values': volume_list}
     ]}
     sleep(1)  # help w/ API limits
     return paginator.paginate(**operation_parameters)
@@ -331,12 +343,29 @@ def delete_snapshot(snapshot_id, region):
     return 1
 
 
-def get_volumes(instance_id, region):
+def get_volumes(instance_ids, region):
     """Get volumes from instance id"""
-    instance_details = get_instance(instance_id, region)
-    block_devices = instance_details.get('BlockDeviceMappings', [])
 
-    return [bd['Ebs']['VolumeId'] for bd in block_devices]
+    volumes = []
+    filters_for_instances = [
+        {'Name': 'attachment.instance-id', 'Values':instance_ids}
+    ]
+
+    ec2 = boto3.client('ec2', region_name=region)
+    vol_paginator = ec2.get_paginator('describe_volumes')
+    operation_parameters = {'Filters': filters_for_instances}
+
+    # paginate -- there might be a lot of tags
+    for page in vol_paginator.paginate(**operation_parameters):
+        # if we don't get even a page of results, or missing hash key, skip
+        if not page and 'Volumes' not in page:
+            continue
+
+        # iterate over each 'Tags' entry
+        for volume in page.get('Volumes', []):
+            volumes.append(volume)
+
+    return volumes
 
 
 def get_volume(volume_id, region):

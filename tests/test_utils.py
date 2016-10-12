@@ -195,7 +195,7 @@ def test_snapshot_helper_methods():
     instance_id = mocks.create_instances(region, count=1)[0]
 
     # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes(instance_id, region)[0]
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
 
     # make some snapshots that should be deleted today too
     now = datetime.now(dateutil.tz.tzutc())
@@ -251,7 +251,7 @@ def test_calculate_relevant_tags():
     )
 
     # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes(instance_id, region)[0]
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
     client.create_tags(
         Resources=[volume_id],
         Tags=volume_tags
@@ -315,7 +315,7 @@ def test_find_deleteon_tags():
         delete_on = cutoff.strftime('%Y-%m-%d')
 
         # create the snapshot
-        volume_id = utils.get_volumes(instance_id, region)[0]
+        volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
         vol_data = utils.get_volume(volume_id, region=region)
         inst_data = utils.get_instance(instance_id, region=region)
 
