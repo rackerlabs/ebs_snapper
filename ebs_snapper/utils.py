@@ -348,7 +348,7 @@ def get_volumes(instance_ids, region):
 
     volumes = []
     filters_for_instances = [
-        {'Name': 'attachment.instance-id', 'Values':instance_ids}
+        {'Name': 'attachment.instance-id', 'Values': instance_ids}
     ]
 
     ec2 = boto3.client('ec2', region_name=region)
