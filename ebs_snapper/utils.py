@@ -321,6 +321,9 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
         Tags=full_tags
     )
 
+    LOG.warn('Finished snapshot in %s of volume %s, valid until %s',
+             region, volume_id, delete_on)
+
 
 def delete_snapshot(snapshot_id, region):
     """Simple wrapper around deletes so we can mock them"""
