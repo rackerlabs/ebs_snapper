@@ -261,8 +261,13 @@ def test_calculate_relevant_tags():
     now = datetime.now(dateutil.tz.tzutc())
     delete_on = now.strftime('%Y-%m-%d')
 
+    instance_data = utils.get_instance(instance_id, region=region)
+    volume_data = utils.get_volume(volume_id, region=region)
+    expected_tags = utils.calculate_relevant_tags(
+        instance_data.get('Tags', None),
+        volume_data.get('Tags', None))
+
     # create the snapshot
-    expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
     utils.snapshot_and_tag(instance_id,
                            'ami-123abc',
                            volume_id,
@@ -311,7 +316,13 @@ def test_find_deleteon_tags():
 
         # create the snapshot
         volume_id = utils.get_volumes(instance_id, region)[0]
-        expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
+        vol_data = utils.get_volume(volume_id, region=region)
+        inst_data = utils.get_instance(instance_id, region=region)
+
+        expected_tags = utils.calculate_relevant_tags(
+            inst_data.get('Tags'),
+            vol_data.get('Tags')
+        )
         utils.snapshot_and_tag(instance_id,
                                'ami-123abc',
                                volume_id,
