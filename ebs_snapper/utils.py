@@ -46,7 +46,7 @@ SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
 
 
-def get_owner_id(region=None, context=None):
+def get_owner_id(context, region=None):
     """Get overall owner account id using a bunch of tricks"""
     LOG.debug('get_owner_id')
 
@@ -232,7 +232,7 @@ def count_snapshots(volume_id, region):
     """count how many snapshots exist for this volume"""
     count = 0
 
-    page_iterator = build_snapshot_paginator(volume_id, region)
+    page_iterator = build_snapshot_paginator([volume_id], region)
     for page in page_iterator:
         count += len(page['Snapshots'])
 
@@ -243,7 +243,7 @@ def most_recent_snapshot(volume_id, region):
     """find and return the most recent snapshot"""
     recent = {}
 
-    page_iterator = build_snapshot_paginator(volume_id, region)
+    page_iterator = build_snapshot_paginator([volume_id], region)
     for page in page_iterator:
         for s in page['Snapshots']:
             if recent == {} or recent['StartTime'] < s['StartTime']:
@@ -259,7 +259,7 @@ def get_snapshots_by_volume(volume_id, region):
     """Return snapshots by volume and region"""
     snapshot_list = []
 
-    page_iterator = build_snapshot_paginator(volume_id, region)
+    page_iterator = build_snapshot_paginator([volume_id], region)
     for page in page_iterator:
         for s in page['Snapshots']:
             snapshot_list.append(s)
@@ -267,13 +267,25 @@ def get_snapshots_by_volume(volume_id, region):
     return snapshot_list
 
 
-def build_snapshot_paginator(volume_id, region):
+def get_snapshots_by_volumes(volume_list, region):
+    """Return snapshots by volume and region"""
+    snapshot_list = []
+
+    page_iterator = build_snapshot_paginator(volume_list, region)
+    for page in page_iterator:
+        for s in page['Snapshots']:
+            snapshot_list.append(s)
+
+    return snapshot_list
+
+
+def build_snapshot_paginator(volume_list, region):
     """Utility function to make pagination of snapshots easier"""
     ec2 = boto3.client('ec2', region_name=region)
 
     paginator = ec2.get_paginator('describe_snapshots')
     operation_parameters = {'Filters': [
-        {'Name': 'volume-id', 'Values': [volume_id]}
+        {'Name': 'volume-id', 'Values': volume_list}
     ]}
     sleep(1)  # help w/ API limits
     return paginator.paginate(**operation_parameters)
@@ -309,6 +321,9 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
         Tags=full_tags
     )
 
+    LOG.warn('Finished snapshot in %s of volume %s, valid until %s',
+             region, volume_id, delete_on)
+
 
 def delete_snapshot(snapshot_id, region):
     """Simple wrapper around deletes so we can mock them"""
@@ -331,12 +346,29 @@ def delete_snapshot(snapshot_id, region):
     return 1
 
 
-def get_volumes(instance_id, region):
+def get_volumes(instance_ids, region):
     """Get volumes from instance id"""
-    instance_details = get_instance(instance_id, region)
-    block_devices = instance_details.get('BlockDeviceMappings', [])
 
-    return [bd['Ebs']['VolumeId'] for bd in block_devices]
+    volumes = []
+    filters_for_instances = [
+        {'Name': 'attachment.instance-id', 'Values': instance_ids}
+    ]
+
+    ec2 = boto3.client('ec2', region_name=region)
+    vol_paginator = ec2.get_paginator('describe_volumes')
+    operation_parameters = {'Filters': filters_for_instances}
+
+    # paginate -- there might be a lot of tags
+    for page in vol_paginator.paginate(**operation_parameters):
+        # if we don't get even a page of results, or missing hash key, skip
+        if not page and 'Volumes' not in page:
+            continue
+
+        # iterate over each 'Tags' entry
+        for volume in page.get('Volumes', []):
+            volumes.append(volume)
+
+    return volumes
 
 
 def get_volume(volume_id, region):
@@ -397,7 +429,7 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
     return None
 
 
-def calculate_relevant_tags(instance_id, volume_id, region, max_results=10):
+def calculate_relevant_tags(instance_tags, volume_tags, max_results=10):
     """Copy AWS tags from instance to volume to snapshot, per product guide"""
 
     # ordered dict of tags, because we care about order
@@ -408,26 +440,18 @@ def calculate_relevant_tags(instance_id, volume_id, region, max_results=10):
         calculated_tags[billing_tag] = None
 
     # first figure out any instance tags
-    if instance_id is not None:
-        instance_data = get_instance(instance_id, region)
-        if instance_data is not None and 'Tags' in instance_data:
-            instance_tags = instance_data['Tags']
-
-            # add relevant ones to the list
-            for tag_ds in instance_tags:
-                tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
-                calculated_tags[tag_name] = tag_value
+    if instance_tags is not None:
+        # add relevant ones to the list
+        for tag_ds in instance_tags:
+            tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
+            calculated_tags[tag_name] = tag_value
 
     # overwrite tag values from instances with volume tags/values
-    if volume_id is not None:
-        volume_data = get_volume(volume_id, region)
-        if volume_data is not None and 'Tags' in volume_data:
-            volume_tags = volume_data['Tags']
-
-            # add relevant ones to the list
-            for tag_ds in volume_tags:
-                tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
-                calculated_tags[tag_name] = tag_value
+    if volume_tags is not None:
+        # add relevant ones to the list
+        for tag_ds in volume_tags:
+            tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
+            calculated_tags[tag_name] = tag_value
 
     returned_tags = []
     for n, v in calculated_tags.iteritems():
@@ -500,3 +524,22 @@ def find_deleteon_tags(region_name, cutoff_date, max_tags=10):
 
     # return max values at most, sorted by lexical (oldest!)
     return sorted(results_found[:max_tags])
+
+
+class MockContext(object):
+    """Context object when we're not running in lambda"""
+
+    def __init__(self):
+        # 2.5 minutes in millis
+        self.remaining_time = 150000
+
+        # called to figure out owner
+        self.invoked_function_arn = None
+
+    def get_remaining_time_in_millis(self):
+        """Always return 2.5 minutes, unless mocked otherwise"""
+        return self.remaining_time
+
+    def set_remaining_time_in_millis(self, millis):
+        """Used to mock other values"""
+        self.remaining_time = millis

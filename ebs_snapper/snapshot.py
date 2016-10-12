@@ -22,6 +22,7 @@
 """Module for doing EBS snapshots."""
 
 from __future__ import print_function
+from time import sleep
 import json
 import logging
 from datetime import timedelta
@@ -29,34 +30,35 @@ import datetime
 import dateutil
 
 import boto3
-from ebs_snapper import utils, dynamo
+from ebs_snapper import utils, dynamo, timeout_check
 
 
 LOG = logging.getLogger(__name__)
 
 
-def perform_fanout_all_regions(context=None):
+def perform_fanout_all_regions(context):
     """For every region, run the supplied function"""
     # get regions with instances running or stopped
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
-        perform_fanout_by_region(region=region, context=context)
+        sleep(5)  # API rate limiting help
+        perform_fanout_by_region(context, region)
 
 
-def perform_fanout_by_region(region, installed_region='us-east-1', context=None):
+def perform_fanout_by_region(context, region, installed_region='us-east-1'):
     """For a specific region, run this function for every matching instance"""
 
     sns_topic = utils.get_topic_arn('CreateSnapshotTopic', installed_region)
 
     # get all configurations, so we can filter instances
-    configurations = dynamo.list_configurations(installed_region)
+    configurations = dynamo.list_configurations(context, installed_region)
     if len(configurations) <= 0:
         LOG.warn('No EBS snapshot configurations were found for region %s', region)
         LOG.warn('No new snapshots will be created for region %s', region)
 
     # for every configuration
     for config in configurations:
-
+        sleep(5)  # API rate limiting help
         # if it's missing the match section, ignore it
         if not utils.validate_snapshot_settings(config):
             continue
@@ -92,6 +94,7 @@ def send_message_instances(region, sns_topic, configuration_snapshot, filters):
 
     for reservation in instances.get('Reservations', []):
         for instance in reservation.get('Instances', []):
+            sleep(5)  # API rate limiting help
             send_fanout_message(
                 instance_id=instance['InstanceId'],
                 region=region,
@@ -116,7 +119,7 @@ def send_fanout_message(instance_id, region, topic_arn, snapshot_settings, insta
     utils.sns_publish(TopicArn=topic_arn, Message=message)
 
 
-def perform_snapshot(region, instance, snapshot_settings, instance_data=None, context=None):
+def perform_snapshot(context, region, instance, snapshot_settings, instance_data=None):
     """Check the region and instance, and see if we should take any snapshots"""
     LOG.info('Reviewing snapshots in region %s on instance %s', region, instance)
 
@@ -133,6 +136,10 @@ def perform_snapshot(region, instance, snapshot_settings, instance_data=None, co
         LOG.debug('Considering device %s', dev)
         volume_id = dev['Ebs']['VolumeId']
 
+        # before we go pull tons of snapshots
+        if timeout_check(context, 'perform_snapshot'):
+            break
+
         # find snapshots
         recent = utils.most_recent_snapshot(volume_id, region)
         now = datetime.datetime.now(dateutil.tz.tzutc())
@@ -147,7 +154,16 @@ def perform_snapshot(region, instance, snapshot_settings, instance_data=None, co
         # perform actual snapshot and create tag: retention + now() as a Y-M-D
         delete_on_dt = now + retention
         delete_on = delete_on_dt.strftime('%Y-%m-%d')
-        expected_tags = utils.calculate_relevant_tags(instance, volume_id, region)
+
+        # before we go make a bunch more API calls
+        if timeout_check(context, 'perform_snapshot'):
+            break
+
+        volume_data = utils.get_volume(volume_id, region=region)
+        expected_tags = utils.calculate_relevant_tags(
+            instance_data.get('Tags', None),
+            volume_data.get('Tags', None))
+
         utils.snapshot_and_tag(
             instance,
             ami_id,

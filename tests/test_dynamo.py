@@ -26,7 +26,7 @@ import pytest
 from moto import mock_dynamodb2
 from moto import mock_ec2, mock_sts, mock_iam
 import boto3
-from ebs_snapper import dynamo, mocks
+from ebs_snapper import dynamo, mocks, utils
 
 
 @mock_ec2
@@ -68,6 +68,7 @@ def test_configurations():
 
     # create a mock table
     mocks.create_dynamodb(region)
+    ctx = utils.MockContext()
 
     # make sure we successfully created the table
     dynamodb = boto3.resource('dynamodb', region_name=region)
@@ -93,24 +94,24 @@ def test_configurations():
     assert response != {}
 
     # now list everything, be sure it was present
-    fetched_configurations = dynamo.list_configurations(region)
+    fetched_configurations = dynamo.list_configurations(ctx, region)
     assert fetched_configurations == [config_data]
 
     # now get that specific one
-    specific_config = dynamo.get_configuration(region, 'foo', '111122223333')
+    specific_config = dynamo.get_configuration(ctx, region, 'foo', '111122223333')
     assert specific_config == config_data
 
     # be sure another get for invalid item returns none
-    missing_config = dynamo.get_configuration(region, 'abc', '111122223333')
+    missing_config = dynamo.get_configuration(ctx, region, 'abc', '111122223333')
     assert missing_config is None
 
     # be sure it returns in a list
-    fetched_configurations = dynamo.list_ids(region)
+    fetched_configurations = dynamo.list_ids(ctx, region)
     assert 'foo' in fetched_configurations
 
     # now delete it and confirm both list and get return nothing
     dynamo.delete_configuration(region, 'foo', '111122223333')
-    specific_config = dynamo.get_configuration(region, 'foo', '111122223333')
+    specific_config = dynamo.get_configuration(ctx, region, 'foo', '111122223333')
     assert specific_config is None
-    fetched_configurations = dynamo.list_configurations(region)
+    fetched_configurations = dynamo.list_configurations(ctx, region)
     assert fetched_configurations == []

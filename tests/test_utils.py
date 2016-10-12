@@ -38,7 +38,7 @@ def test_get_owner_id():
     client.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
 
     # show that get_owner_id can get the dummy owner id
-    assert ['111122223333'] == utils.get_owner_id()
+    assert ['111122223333'] == utils.get_owner_id(utils.MockContext())
 
 
 @mock_ec2
@@ -195,7 +195,7 @@ def test_snapshot_helper_methods():
     instance_id = mocks.create_instances(region, count=1)[0]
 
     # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes(instance_id, region)[0]
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
 
     # make some snapshots that should be deleted today too
     now = datetime.now(dateutil.tz.tzutc())
@@ -251,7 +251,7 @@ def test_calculate_relevant_tags():
     )
 
     # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes(instance_id, region)[0]
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
     client.create_tags(
         Resources=[volume_id],
         Tags=volume_tags
@@ -261,8 +261,13 @@ def test_calculate_relevant_tags():
     now = datetime.now(dateutil.tz.tzutc())
     delete_on = now.strftime('%Y-%m-%d')
 
+    instance_data = utils.get_instance(instance_id, region=region)
+    volume_data = utils.get_volume(volume_id, region=region)
+    expected_tags = utils.calculate_relevant_tags(
+        instance_data.get('Tags', None),
+        volume_data.get('Tags', None))
+
     # create the snapshot
-    expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
     utils.snapshot_and_tag(instance_id,
                            'ami-123abc',
                            volume_id,
@@ -310,8 +315,14 @@ def test_find_deleteon_tags():
         delete_on = cutoff.strftime('%Y-%m-%d')
 
         # create the snapshot
-        volume_id = utils.get_volumes(instance_id, region)[0]
-        expected_tags = utils.calculate_relevant_tags(instance_id, volume_id, region)
+        volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
+        vol_data = utils.get_volume(volume_id, region=region)
+        inst_data = utils.get_instance(instance_id, region=region)
+
+        expected_tags = utils.calculate_relevant_tags(
+            inst_data.get('Tags'),
+            vol_data.get('Tags')
+        )
         utils.snapshot_and_tag(instance_id,
                                'ami-123abc',
                                volume_id,

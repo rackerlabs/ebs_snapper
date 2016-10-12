@@ -39,7 +39,7 @@ def lambda_fanout_snapshot(event, context):
     LOG.setLevel(logging.INFO)
 
     # for every region and every instance, send to this function
-    snapshot.perform_fanout_all_regions(context=context)
+    snapshot.perform_fanout_all_regions(context)
 
     LOG.info('Function lambda_fanout_snapshot completed')
 
@@ -52,7 +52,7 @@ def lambda_fanout_clean(event, context):
     LOG.setLevel(logging.INFO)
 
     # for every region, send to this function
-    clean.perform_fanout_all_regions(context=context)
+    clean.perform_fanout_all_regions(context)
 
     LOG.info('Function lambda_fanout_clean completed')
 
@@ -93,11 +93,11 @@ def lambda_snapshot(event, context):
 
         # call the snapshot perform method
         snapshot.perform_snapshot(
+            context,
             message_json['region'],
             message_json['instance_id'],
             message_json['settings'],
-            instance_data=opt_instance_data,
-            context=context)
+            instance_data=opt_instance_data)
 
         LOG.info('Function lambda_snapshot completed')
 
@@ -132,6 +132,6 @@ def lambda_clean(event, context):
             continue
 
         # call the snapshot cleanup method
-        clean.clean_snapshot(message_json['region'], context=context)
+        clean.clean_snapshot(context, message_json['region'])
 
     LOG.info('Function lambda_clean completed')
