@@ -66,13 +66,15 @@ def test_perform_fanout_all_regions_snapshot(mocker):
     dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', config_data)
 
     # patch the final message sender method
+    ctx = utils.MockContext()
     mocker.patch('ebs_snapper.snapshot.perform_fanout_by_region')
-    snapshot.perform_fanout_all_regions()
+    snapshot.perform_fanout_all_regions(ctx)
 
     # fan out, and be sure we touched every instance we created before
     for r in dummy_regions:
         snapshot.perform_fanout_by_region.assert_any_call(
-            region=r, context=None)  # pylint: disable=E1103
+            ctx,
+            r)  # pylint: disable=E1103
 
 
 @mock_ec2
@@ -115,7 +117,7 @@ def test_perform_fanout_by_region_snapshot(mocker):
     mocker.patch('ebs_snapper.snapshot.send_fanout_message')
 
     # fan out, and be sure we touched every instance we created before
-    snapshot.perform_fanout_all_regions()
+    snapshot.perform_fanout_all_regions(utils.MockContext())
 
     print(snapshot.send_fanout_message.mock_calls)
     for key, value in region_map.iteritems():
@@ -177,7 +179,8 @@ def test_perform_snapshot(mocker):
     mocker.patch('ebs_snapper.utils.snapshot_and_tag')
 
     # since there are no snapshots, we should expect this to trigger one
-    snapshot.perform_snapshot(region, instance_id, snapshot_settings)
+    ctx = utils.MockContext()
+    snapshot.perform_snapshot(ctx, region, instance_id, snapshot_settings)
 
     # test results
     utils.snapshot_and_tag.assert_any_call(  # pylint: disable=E1103
@@ -222,7 +225,8 @@ def test_perform_snapshot_skipped(mocker):
     mocker.patch('ebs_snapper.utils.snapshot_and_tag')
 
     # since there are no snapshots, we should expect this to trigger one
-    snapshot.perform_snapshot(region, instance_id, snapshot_settings)
+    ctx = utils.MockContext()
+    snapshot.perform_snapshot(ctx, region, instance_id, snapshot_settings)
 
     # test results (should not create a second snapshot)
     utils.snapshot_and_tag.assert_not_called()  # pylint: disable=E1103

@@ -28,12 +28,12 @@ import json
 import logging
 import boto3
 import dateutil
-from ebs_snapper import utils, dynamo
+from ebs_snapper import utils, dynamo, timeout_check
 
 LOG = logging.getLogger(__name__)
 
 
-def perform_fanout_all_regions(context=None):
+def perform_fanout_all_regions(context):
     """For every region, run the supplied function"""
     # get regions, regardless of instances
     sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
@@ -42,12 +42,12 @@ def perform_fanout_all_regions(context=None):
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
         sleep(5)  # API limit relief
-        send_fanout_message(region=region, topic_arn=sns_topic)
+        send_fanout_message(context, region=region, topic_arn=sns_topic)
 
     LOG.info('Function clean_perform_fanout_all_regions completed')
 
 
-def send_fanout_message(region, topic_arn, context=None):
+def send_fanout_message(context, region, topic_arn):
     """Publish an SNS message to topic_arn that specifies a region to review snapshots on"""
     message = json.dumps({'region': region})
     LOG.debug('send_fanout_message: %s', message)
@@ -56,17 +56,17 @@ def send_fanout_message(region, topic_arn, context=None):
     LOG.info('Function clean_send_fanout_message completed')
 
 
-def clean_snapshot(region,
+def clean_snapshot(context,
+                   region,
                    installed_region='us-east-1',
-                   started_run=datetime.datetime.now(dateutil.tz.tzutc()),
-                   context=None):
+                   started_run=datetime.datetime.now(dateutil.tz.tzutc())):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
 
-    owner_ids = utils.get_owner_id(region, context=context)
+    owner_ids = utils.get_owner_id(context, region)
     LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
 
-    configurations = dynamo.list_configurations(installed_region)
+    configurations = dynamo.list_configurations(context, installed_region)
     LOG.info('Fetched all possible configuration rules from DynamoDB')
 
     # go clean up 5 tags at a time, until they are all gone, and time it!
@@ -77,7 +77,7 @@ def clean_snapshot(region,
     delete_on_date = datetime.date.today()
     # go get initial batch, as long as there are tags and we still have time
     tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
-    while len(tags_to_cleanup) > 0 and not timeout_check(started_run, 'clean_snapshot'):
+    while len(tags_to_cleanup) > 0 and not timeout_check(context, 'clean_snapshot'):
         LOG.info('Pulling %s (batch size) tags to clean up, found: %s',
                  batch_size,
                  str(tags_to_cleanup))
@@ -89,21 +89,19 @@ def clean_snapshot(region,
             # always sleep for 5 seconds before we clean up another chunk of snapshots
             sleep(5)  # help with API limit
 
-            if timeout_check(started_run, 'clean_snapshot'):
-                LOG.warn('clean_snapshot timed out')
+            if timeout_check(context, 'clean_snapshot'):
                 break
 
             # now go get 'em!
             deleted_count += clean_snapshots_tagged(
-                started_run,
+                context,
                 target_tag,
                 owner_ids,
                 region,
                 configurations)
 
         # check before we look for newer tags to cleanup, that we're good to run
-        if timeout_check(started_run, 'Timed out while cleaning snapshots'):
-            LOG.warn('clean_snapshot timed out')
+        if timeout_check(context, 'Timed out while cleaning snapshots'):
             break
 
         # another batch, more tags after the first batch_size
@@ -117,7 +115,7 @@ def clean_snapshot(region,
     LOG.info('Function clean_snapshot completed')
 
 
-def clean_snapshots_tagged(start_time, delete_on,
+def clean_snapshots_tagged(context, delete_on,
                            owner_ids, region, configurations, default_min_snaps=5):
     """Remove snapshots where DeleteOn tag is delete_on string"""
     ec2 = boto3.client('ec2', region_name=region)
@@ -146,7 +144,7 @@ def clean_snapshots_tagged(start_time, delete_on,
 
     for snap in snapshot_response['Snapshots']:
         # be sure we haven't overrun the time to run
-        if timeout_check(start_time, 'clean_snapshots_tagged snap loop'):
+        if timeout_check(context, 'clean_snapshots_tagged snap loop'):
             return deleted_count
 
         sleep(1)  # help with API limit
@@ -185,13 +183,3 @@ def clean_snapshots_tagged(start_time, delete_on,
 
     LOG.info('Function clean_snapshots_tagged completed, deleted count: %s', str(deleted_count))
     return deleted_count
-
-
-def timeout_check(start_time, place):
-    """Return True if start_time was more than 4 minutes ago"""
-    elapsed_time = datetime.datetime.now(dateutil.tz.tzutc()) - start_time
-    if elapsed_time >= datetime.timedelta(minutes=4):
-        LOG.warn('%s timed out', place)
-        return True
-
-    return False

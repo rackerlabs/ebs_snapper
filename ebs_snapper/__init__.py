@@ -21,8 +21,22 @@
 #
 """Module for doing EBS snapshots and cleaning up snapshots."""
 
+import logging
+
 __title__ = 'ebs_snapper'
 __version__ = '0.3.6'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright Rackspace US, Inc. 2015-2016'
 __url__ = 'https://github.com/rackerlabs/ebs-snapper-lambda-v2'
+
+LOG = logging.getLogger(__name__)
+
+
+def timeout_check(context, place):
+    """Return True if we have less than 1 minute remaining"""
+
+    if context.get_remaining_time_in_millis() < 60000:
+        LOG.warn('Lambda/Less than 1m: %s', place)
+        return True
+
+    return False

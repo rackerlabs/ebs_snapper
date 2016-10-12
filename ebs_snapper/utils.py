@@ -46,7 +46,7 @@ SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
 
 
-def get_owner_id(region=None, context=None):
+def get_owner_id(context, region=None):
     """Get overall owner account id using a bunch of tricks"""
     LOG.debug('get_owner_id')
 
@@ -521,3 +521,22 @@ def find_deleteon_tags(region_name, cutoff_date, max_tags=10):
 
     # return max values at most, sorted by lexical (oldest!)
     return sorted(results_found[:max_tags])
+
+
+class MockContext(object):
+    """Context object when we're not running in lambda"""
+
+    def __init__(self):
+        # 2.5 minutes in millis
+        self.remaining_time = 150000
+
+        # called to figure out owner
+        self.invoked_function_arn = None
+
+    def get_remaining_time_in_millis(self):
+        """Always return 2.5 minutes, unless mocked otherwise"""
+        return self.remaining_time
+
+    def set_remaining_time_in_millis(self, millis):
+        """Used to mock other values"""
+        self.remaining_time = millis

@@ -32,6 +32,7 @@ import ebs_snapper
 from ebs_snapper import snapshot, clean, dynamo, utils, deploy
 
 LOG = logging.getLogger(__name__)
+CTX = utils.MockContext()
 
 
 def main(arv=None):
@@ -135,14 +136,14 @@ def main(arv=None):
 def shell_fanout_snapshot(*args):
     """Print fanout JSON messages, instead of sending them like lambda version."""
     # for every region and every instance, send to this function
-    snapshot.perform_fanout_all_regions()
+    snapshot.perform_fanout_all_regions(CTX)
     LOG.info('Function shell_fanout_snapshot completed')
 
 
 def shell_fanout_clean(*args):
     """Print fanout JSON messages, instead of sending them like lambda version."""
     # for every region, send to this function
-    clean.perform_fanout_all_regions()
+    clean.perform_fanout_all_regions(CTX)
     LOG.info('Function shell_fanout_clean completed')
 
 
@@ -155,6 +156,7 @@ def shell_snapshot(*args):
 
     # call the snapshot perform method
     snapshot.perform_snapshot(
+        CTX,
         message_json['region'],
         message_json['instance_id'],
         message_json['settings'],
@@ -167,6 +169,7 @@ def shell_deploy(*args):
     """Deploy this tool to a given account."""
     # call the snapshot cleanup method
     deploy.deploy(
+        CTX,
         aws_account_id=args[0].aws_account_id,
         no_build=args[0].no_build,
         no_upload=args[0].no_upload,
@@ -181,7 +184,7 @@ def shell_clean(*args):
     message_json = json.loads(args[0].message)
 
     # call the snapshot cleanup method
-    clean.clean_snapshot(message_json['region'])
+    clean.clean_snapshot(CTX, message_json['region'])
 
     LOG.info('Function shell_clean completed')
 
@@ -191,7 +194,7 @@ def shell_configure(*args):
 
     # lazy retrieve the account id one way or another
     if args[0].aws_account_id is None:
-        aws_account_id = utils.get_owner_id()[0]
+        aws_account_id = utils.get_owner_id(CTX)[0]
     else:
         aws_account_id = args[0].aws_account_id
     LOG.debug("Account: %s", aws_account_id)
@@ -203,6 +206,7 @@ def shell_configure(*args):
     if action == 'list':
         LOG.info('Listing all object keys')
         list_results = dynamo.list_ids(
+            CTX,
             installed_region,
             aws_account_id=aws_account_id)
         if list_results is None or len(list_results) == 0:
@@ -220,6 +224,7 @@ def shell_configure(*args):
         LOG.info('Retrieving %s', args[0])
 
         single_result = dynamo.get_configuration(
+            CTX,
             installed_region,
             object_id=object_id,
             aws_account_id=aws_account_id)

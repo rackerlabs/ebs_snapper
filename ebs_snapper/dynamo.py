@@ -28,11 +28,11 @@ from boto3.dynamodb.conditions import Key
 from ebs_snapper import utils
 
 
-def list_ids(installed_region, aws_account_id=None, context=None):
+def list_ids(context, installed_region, aws_account_id=None):
     """Retrieve configuration from DynamoDB and return array of dictionary objects"""
     found_configurations = {}
     if aws_account_id is None:
-        aws_account_id = utils.get_owner_id(context=context)[0]
+        aws_account_id = utils.get_owner_id(context)[0]
 
     dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
@@ -48,11 +48,11 @@ def list_ids(installed_region, aws_account_id=None, context=None):
     return found_configurations.values()
 
 
-def list_configurations(installed_region, aws_account_id=None, context=None):
+def list_configurations(context, installed_region, aws_account_id=None):
     """Retrieve configuration from DynamoDB and return array of dictionary objects"""
     found_configurations = {}
     if aws_account_id is None:
-        aws_account_id = utils.get_owner_id(context=context)[0]
+        aws_account_id = utils.get_owner_id(context)[0]
 
     dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
@@ -69,10 +69,10 @@ def list_configurations(installed_region, aws_account_id=None, context=None):
     return found_configurations.values()
 
 
-def get_configuration(installed_region, object_id, aws_account_id=None, context=None):
+def get_configuration(context, installed_region, object_id, aws_account_id=None):
     """Retrieve configuration from DynamoDB and return single object"""
     if aws_account_id is None:
-        aws_account_id = utils.get_owner_id(context=context)[0]
+        aws_account_id = utils.get_owner_id(context)[0]
 
     dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')

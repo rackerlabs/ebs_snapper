@@ -38,7 +38,7 @@ def test_get_owner_id():
     client.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
 
     # show that get_owner_id can get the dummy owner id
-    assert ['111122223333'] == utils.get_owner_id()
+    assert ['111122223333'] == utils.get_owner_id(utils.MockContext())
 
 
 @mock_ec2
