@@ -25,10 +25,10 @@ from __future__ import print_function
 from time import sleep
 import json
 import logging
+import random
 from datetime import timedelta
 import datetime
 import dateutil
-import random
 
 import boto3
 from ebs_snapper import utils, dynamo, timeout_check
@@ -173,7 +173,7 @@ def perform_snapshot(context, region, instance, snapshot_settings, instance_data
 
         # snapshot due?
         if should_perform_snapshot(frequency, now, volume_id, recent):
-            LOG.info('Performing snapshot for %s', volume_id)
+            LOG.debug('Performing snapshot for %s, calculating tags', volume_id)
         else:
             LOG.debug('NOT Performing snapshot for %s', volume_id)
             continue
@@ -212,8 +212,8 @@ def should_perform_snapshot(frequency, now, volume_id, recent=None):
 
     if utils.is_timedelta_expression(frequency):
         LOG.debug('Next snapshot for volume %s should be due at %s',
-                 volume_id,
-                 (recent['StartTime'] + frequency))
+                  volume_id,
+                  (recent['StartTime'] + frequency))
         return (recent['StartTime'] + frequency) < now
 
     if utils.is_crontab_expression(frequency):

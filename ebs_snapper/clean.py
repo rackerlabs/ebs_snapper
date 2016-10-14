@@ -23,12 +23,11 @@
 
 from __future__ import print_function
 from time import sleep
+from datetime import timedelta
 import datetime
 import json
 import logging
-import random
 import boto3
-import dateutil
 from ebs_snapper import utils, dynamo, timeout_check
 
 LOG = logging.getLogger()
@@ -60,134 +59,95 @@ def send_fanout_message(context, region, topic_arn, cli=False):
     LOG.info('Function clean_send_fanout_message completed')
 
 
-def clean_snapshot(context,
-                   region,
-                   installed_region='us-east-1',
-                   started_run=datetime.datetime.now(dateutil.tz.tzutc())):
+def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-east-1'):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
+    ec2 = boto3.client('ec2', region_name=region)
 
-    owner_ids = utils.get_owner_id(context, region)
-    LOG.info('Filtering snapshots to clean by owner id %s', owner_ids)
-
+    # fetch these, in case we need to figure out what applies to an instance
     configurations = dynamo.list_configurations(context, installed_region)
     LOG.info('Fetched all possible configuration rules from DynamoDB')
 
-    # go clean up 5 tags at a time, until they are all gone, and time it!
-    tags_seen = []
+    # figure out what dates we want to nuke
+    today = datetime.date.today()
+    delete_on_values = []
+    for i in range(0, 7):  # seven days ago until today
+        del_date = today + timedelta(days=-i)
+        delete_on_values.append(del_date.strftime('%Y-%m-%d'))
+
+    # setup counters before we start
     deleted_count = 0
-    batch_size = 5
 
-    delete_on_date = datetime.date.today()
+    # setup our filters
+    filters = [
+        {'Name': 'tag-key', 'Values': ['DeleteOn']},
+        {'Name': 'tag-value', 'Values': delete_on_values},
+    ]
+    params = {'Filters': filters}
 
-    # go get initial batch, as long as there are tags and we still have time
-    tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
-    random.shuffle(tags_to_cleanup)
+    # paginate the snapshot list
+    tag_paginator = ec2.get_paginator('describe_snapshots')
+    for page in tag_paginator.paginate(**params):
+        # stop if we're running out of time
+        if timeout_check(context, 'clean_snapshot'):
+            break
 
-    while len(tags_to_cleanup) > 0 and not timeout_check(context, 'clean_snapshot'):
-        LOG.info('Pulling %s (batch size) tags to clean up, found: %s',
-                 batch_size,
-                 str(tags_to_cleanup))
+        # if we don't get even a page of results, or missing hash key, skip
+        if not page and 'Snapshots' not in page:
+            continue
 
-        for target_tag in tags_to_cleanup:
-            LOG.info('Loop in clean_snapshot, looking at tag %s', target_tag)
-            tags_seen.append(target_tag)
-
-            # always sleep for 5 seconds before we clean up another chunk of snapshots
-            sleep(5)  # help with API limit
-
+        for snap in page['Snapshots']:
+            # stop if we're running out of time
             if timeout_check(context, 'clean_snapshot'):
                 break
 
-            # now go get 'em!
-            deleted_count += clean_snapshots_tagged(
-                context,
-                target_tag,
-                owner_ids,
-                region,
-                configurations)
+            # ugly comprehension to strip out a tag
+            delete_on = [r['Value'] for r in snap['Tags'] if r.get('Key') == 'DeleteOn'][0]
 
-        # check before we look for newer tags to cleanup, that we're good to run
-        if timeout_check(context, 'Timed out while cleaning snapshots'):
-            break
+            # attempt to identify the instance this applies to, so we can check minimums
+            try:
+                snapshot_volume = snap['VolumeId']
+                volume_instance = utils.get_instance_by_volume(snapshot_volume, region)
 
-        # another batch, more tags after the first batch_size
-        tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
-        # but don't try to do a tag if we already tried.
-        tags_to_cleanup = [x for x in tags_to_cleanup if x not in tags_seen]
-        random.shuffle(tags_to_cleanup)
+                # minimum required
+                if volume_instance is None:
+                    minimum_snaps = default_min_snaps
+                else:
+                    snapshot_settings = utils.get_snapshot_settings_by_instance(
+                        volume_instance, configurations, region)
+                    minimum_snaps = snapshot_settings['snapshot']['minimum']
+
+                # current number of snapshots
+                no_snaps = utils.count_snapshots(snapshot_volume, region)
+
+                # if we have less than the minimum, don't delete this one
+                if no_snaps < minimum_snaps:
+                    LOG.warn('Not deleting snapshot %s from %s (%s)',
+                             snap['SnapshotId'], region, delete_on)
+                    LOG.warn('Only %s snapshots exist, below minimum of %s',
+                             no_snaps, minimum_snaps)
+                    continue
+
+            except:
+                # if we couldn't figure out a minimum of snapshots,
+                # don't clean this up -- these could be orphaned snapshots
+                LOG.warn('Error analyzing snapshot %s from %s, skipping... (%s)',
+                         snap['SnapshotId'],
+                         region,
+                         delete_on
+                        )
+                continue
+
+            LOG.warn('Deleting snapshot %s from %s (%s)',
+                     snap['SnapshotId'],
+                     region,
+                     delete_on
+                    )
+            deleted_count += utils.delete_snapshot(snap['SnapshotId'], region)
 
     if deleted_count <= 0:
         LOG.warn('No snapshots were cleaned up for the entire region %s', region)
+    else:
+        LOG.info('Function clean_snapshots_tagged completed, deleted count: %s', str(deleted_count))
 
     LOG.info('Function clean_snapshot completed')
-
-
-def clean_snapshots_tagged(context, delete_on,
-                           owner_ids, region, configurations, default_min_snaps=5):
-    """Remove snapshots where DeleteOn tag is delete_on string"""
-    ec2 = boto3.client('ec2', region_name=region)
-
-    # pull down snapshots we want to axe
-    filters = [
-        {'Name': 'tag-key', 'Values': ['DeleteOn']},
-        {'Name': 'tag-value', 'Values': [delete_on]},
-    ]
-    LOG.debug("ec2.describe_snapshots with filters %s", filters)
-    sleep(1)  # help with API limit
-    snapshot_response = ec2.describe_snapshots(OwnerIds=owner_ids, Filters=filters)
-    LOG.debug("ec2.describe_snapshots fin")
-
-    deleted_count = 0
-    if 'Snapshots' not in snapshot_response or len(snapshot_response['Snapshots']) <= 0:
-        LOG.debug('No snapshots were found using owners=%s, filters=%s',
-                  owner_ids,
-                  filters)
-        return deleted_count
-    else:
-        LOG.info('Examining %s snapshots to clean delete_on=%s, region=%s',
-                 str(len(snapshot_response['Snapshots'])),
-                 delete_on,
-                 region)
-
-    for snap in snapshot_response['Snapshots']:
-        # be sure we haven't overrun the time to run
-        if timeout_check(context, 'clean_snapshots_tagged snap loop'):
-            return deleted_count
-
-        sleep(1)  # help with API limit
-
-        # attempt to identify the instance this applies to, so we can check minimums
-        try:
-            snapshot_volume = snap['VolumeId']
-            volume_instance = utils.get_instance_by_volume(snapshot_volume, region)
-
-            # minimum required
-            if volume_instance is None:
-                minimum_snaps = default_min_snaps
-            else:
-                snapshot_settings = utils.get_snapshot_settings_by_instance(
-                    volume_instance, configurations, region)
-                minimum_snaps = snapshot_settings['snapshot']['minimum']
-
-            # current number of snapshots
-            no_snaps = utils.count_snapshots(snapshot_volume, region)
-
-            # if we have less than the minimum, don't delete this one
-            if no_snaps < minimum_snaps:
-                LOG.warn('Not deleting snapshot %s from %s', snap['SnapshotId'], region)
-                LOG.warn('Only %s snapshots exist, below minimum of %s', no_snaps, minimum_snaps)
-                continue
-
-        except:
-            # if we couldn't figure out a minimum of snapshots,
-            # don't clean this up -- these could be orphaned snapshots
-            LOG.warn('Not deleting snapshot %s from %s, not enough snapshots remain',
-                     snap['SnapshotId'], region)
-            continue
-
-        LOG.warn('Deleting snapshot %s from %s', snap['SnapshotId'], region)
-        deleted_count += utils.delete_snapshot(snap['SnapshotId'], region)
-
-    LOG.info('Function clean_snapshots_tagged completed, deleted count: %s', str(deleted_count))
-    return deleted_count

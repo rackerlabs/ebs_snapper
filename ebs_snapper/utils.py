@@ -25,8 +25,8 @@ from __future__ import print_function
 import logging
 import collections
 import datetime
-from time import sleep
 from datetime import timedelta
+from time import sleep
 import dateutil
 import boto3
 from pytimeparse.timeparse import timeparse
@@ -322,8 +322,8 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
         Tags=full_tags
     )
 
-    LOG.warn('Finished snapshot in %s of volume %s, valid until %s',
-             region, volume_id, delete_on)
+    LOG.debug('Finished snapshot in %s of volume %s, valid until %s',
+              region, volume_id, delete_on)
 
 
 def delete_snapshot(snapshot_id, region):
@@ -491,42 +491,6 @@ def is_timedelta_expression(expr):
     return False
 
 
-def find_deleteon_tags(region_name, cutoff_date, max_tags=10):
-    """Get tags before cutoff date on snaps in region, max returned tags"""
-    ec2 = boto3.client('ec2', region_name=region_name)
-    results_found = []
-
-    filter_for_tags = [{'Name': 'resource-type', 'Values': ['snapshot']},
-                       {'Name': 'key', 'Values': ['DeleteOn']}]
-
-    tag_paginator = ec2.get_paginator('describe_tags')
-    operation_parameters = {'Filters': filter_for_tags}
-
-    # paginate -- there might be a lot of tags
-    for page in tag_paginator.paginate(**operation_parameters):
-        # if we don't get even a page of results, or missing hash key, skip
-        if not page and 'Tags' not in page:
-            continue
-
-        # iterate over each 'Tags' entry
-        for found_tag in page.get('Tags', []):
-
-            # don't bother parsing a tag we're already going to return
-            if found_tag['Value'] in results_found:
-                continue
-
-            # try to understand that tag
-            if dateutil.parser.parse(found_tag['Value']).date() <= cutoff_date:
-                results_found.append(found_tag['Value'])
-
-            # get out if we ever add an element and go over the max
-            if len(results_found) > max_tags:
-                break
-
-    # return max values at most, sorted by lexical (oldest!)
-    return sorted(results_found[:max_tags])
-
-
 class MockContext(object):
     """Context object when we're not running in lambda"""
     # Useful information about the LambdaContext object
@@ -534,17 +498,16 @@ class MockContext(object):
 
     def __init__(self):
         # session end timer (max lambda)
-        five_minutes = datetime.timedelta(minutes=5)
+        five_minutes = datetime.timedelta(minutes=250)
         self.finish_time = datetime.datetime.now(dateutil.tz.tzutc()) + five_minutes
 
         # called to figure out owner
         self.invoked_function_arn = None
 
-
     def set_remaining_time_in_millis(self, remaining_millis):
+        """set the remaining time, for mocks"""
         now = datetime.datetime.now(dateutil.tz.tzutc())
         self.finish_time = now + datetime.timedelta(milliseconds=remaining_millis)
-
 
     def get_remaining_time_in_millis(self):
         """Return 5 minutes minus remaining time"""
@@ -556,6 +519,7 @@ class MockContext(object):
         else:
             return time_left
 
-
-    def timedelta_milliseconds(self, td):
+    @staticmethod
+    def timedelta_milliseconds(td):
+        """return milliseconds from a timedelta"""
         return td.days*86400000 + td.seconds*1000 + td.microseconds/1000

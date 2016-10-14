@@ -74,7 +74,8 @@ def test_perform_fanout_all_regions_snapshot(mocker):
     for r in dummy_regions:
         snapshot.perform_fanout_by_region.assert_any_call(
             ctx,
-            r)  # pylint: disable=E1103
+            r,
+            cli=False)  # pylint: disable=E1103
 
 
 @mock_ec2
