@@ -26,6 +26,7 @@ from time import sleep
 import datetime
 import json
 import logging
+import random
 import boto3
 import dateutil
 from ebs_snapper import utils, dynamo, timeout_check
@@ -78,8 +79,11 @@ def clean_snapshot(context,
     batch_size = 5
 
     delete_on_date = datetime.date.today()
+
     # go get initial batch, as long as there are tags and we still have time
     tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
+    random.shuffle(tags_to_cleanup)
+
     while len(tags_to_cleanup) > 0 and not timeout_check(context, 'clean_snapshot'):
         LOG.info('Pulling %s (batch size) tags to clean up, found: %s',
                  batch_size,
@@ -111,6 +115,7 @@ def clean_snapshot(context,
         tags_to_cleanup = utils.find_deleteon_tags(region, delete_on_date, max_tags=batch_size)
         # but don't try to do a tag if we already tried.
         tags_to_cleanup = [x for x in tags_to_cleanup if x not in tags_seen]
+        random.shuffle(tags_to_cleanup)
 
     if deleted_count <= 0:
         LOG.warn('No snapshots were cleaned up for the entire region %s', region)

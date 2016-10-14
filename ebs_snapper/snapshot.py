@@ -28,6 +28,7 @@ import logging
 from datetime import timedelta
 import datetime
 import dateutil
+import random
 
 import boto3
 from ebs_snapper import utils, dynamo, timeout_check
@@ -42,7 +43,7 @@ def perform_fanout_all_regions(context, cli=False):
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
         if timeout_check(context, 'perform_fanout_by_region'):
-            break        
+            break
         sleep(5)  # API rate limiting help
         perform_fanout_by_region(context, region, cli=cli)
 
@@ -60,6 +61,7 @@ def perform_fanout_by_region(context, region, cli=False, installed_region='us-ea
 
     # for every configuration
     LOG.info("Loading every configuration; considering region %r", region)
+    random.shuffle(configurations)
     for config in configurations:
         if timeout_check(context, 'perform_fanout_by_region'):
             break
@@ -99,8 +101,14 @@ def send_message_instances(context, region, sns_topic, configuration_snapshot, f
     client = boto3.client('ec2', region_name=region)
     instances = client.describe_instances(Filters=filters)
 
-    for reservation in instances.get('Reservations', []):
-        for instance in reservation.get('Instances', []):
+    res_list = instances.get('Reservations', [])
+    random.shuffle(res_list)  # attempt to randomize order, for timeouts
+
+    for reservation in res_list:
+        inst_list = reservation.get('Instances', [])
+        random.shuffle(inst_list)  # attempt to randomize order, for timeouts
+
+        for instance in inst_list:
             if timeout_check(context, 'send_message_instances'):
                 break
 
