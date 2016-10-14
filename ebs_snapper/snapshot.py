@@ -33,19 +33,21 @@ import boto3
 from ebs_snapper import utils, dynamo, timeout_check
 
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 
-def perform_fanout_all_regions(context):
+def perform_fanout_all_regions(context, cli=False):
     """For every region, run the supplied function"""
     # get regions with instances running or stopped
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
+        if timeout_check(context, 'perform_fanout_by_region'):
+            break        
         sleep(5)  # API rate limiting help
-        perform_fanout_by_region(context, region)
+        perform_fanout_by_region(context, region, cli=cli)
 
 
-def perform_fanout_by_region(context, region, installed_region='us-east-1'):
+def perform_fanout_by_region(context, region, cli=False, installed_region='us-east-1'):
     """For a specific region, run this function for every matching instance"""
 
     sns_topic = utils.get_topic_arn('CreateSnapshotTopic', installed_region)
@@ -57,7 +59,10 @@ def perform_fanout_by_region(context, region, installed_region='us-east-1'):
         LOG.warn('No new snapshots will be created for region %s', region)
 
     # for every configuration
+    LOG.info("Loading every configuration; considering region %r", region)
     for config in configurations:
+        if timeout_check(context, 'perform_fanout_by_region'):
+            break
         sleep(5)  # API rate limiting help
         # if it's missing the match section, ignore it
         if not utils.validate_snapshot_settings(config):
@@ -77,13 +82,15 @@ def perform_fanout_by_region(context, region, installed_region='us-east-1'):
         # send a message for each instance in this region, to
         # evaluate if it should create a snapshot
         send_message_instances(
+            context=context,
             region=region,
             sns_topic=sns_topic,
             configuration_snapshot=config,
-            filters=filters)
+            filters=filters,
+            cli=cli)
 
 
-def send_message_instances(region, sns_topic, configuration_snapshot, filters):
+def send_message_instances(context, region, sns_topic, configuration_snapshot, filters, cli=False):
     """Send message to all instance_id's in region. Filters must be in the boto3 format."""
 
     filters.append({'Name': 'instance-state-name',
@@ -94,13 +101,25 @@ def send_message_instances(region, sns_topic, configuration_snapshot, filters):
 
     for reservation in instances.get('Reservations', []):
         for instance in reservation.get('Instances', []):
-            sleep(5)  # API rate limiting help
-            send_fanout_message(
-                instance_id=instance['InstanceId'],
-                region=region,
-                topic_arn=sns_topic,
-                snapshot_settings=configuration_snapshot,
-                instance_data=instance)
+            if timeout_check(context, 'send_message_instances'):
+                break
+
+            if cli:
+                perform_snapshot(
+                    context,
+                    region,
+                    instance['InstanceId'],
+                    configuration_snapshot,
+                    instance_data=instance
+                )
+            else:
+                send_fanout_message(
+                    instance_id=instance['InstanceId'],
+                    region=region,
+                    topic_arn=sns_topic,
+                    snapshot_settings=configuration_snapshot,
+                    instance_data=instance)
+            sleep(8)  # API rate limiting help
 
 
 def send_fanout_message(instance_id, region, topic_arn, snapshot_settings, instance_data=None):
@@ -148,7 +167,7 @@ def perform_snapshot(context, region, instance, snapshot_settings, instance_data
         if should_perform_snapshot(frequency, now, volume_id, recent):
             LOG.info('Performing snapshot for %s', volume_id)
         else:
-            LOG.info('NOT Performing snapshot for %s', volume_id)
+            LOG.debug('NOT Performing snapshot for %s', volume_id)
             continue
 
         # perform actual snapshot and create tag: retention + now() as a Y-M-D
@@ -177,14 +196,14 @@ def should_perform_snapshot(frequency, now, volume_id, recent=None):
     """if newest snapshot time + frequency < now(), do a snapshot"""
     # if no recent snapshot, one is always due
     if recent is None:
-        LOG.info('Last snapshot for volume %s was not found', volume_id)
-        LOG.info('Next snapshot for volume %s should be due now', volume_id)
+        LOG.debug('Last snapshot for volume %s was not found', volume_id)
+        LOG.debug('Next snapshot for volume %s should be due now', volume_id)
         return True
     else:
-        LOG.info('Last snapshot for volume %s was at %s', volume_id, recent['StartTime'])
+        LOG.debug('Last snapshot for volume %s was at %s', volume_id, recent['StartTime'])
 
     if utils.is_timedelta_expression(frequency):
-        LOG.info('Next snapshot for volume %s should be due at %s',
+        LOG.debug('Next snapshot for volume %s should be due at %s',
                  volume_id,
                  (recent['StartTime'] + frequency))
         return (recent['StartTime'] + frequency) < now

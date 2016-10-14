@@ -30,10 +30,10 @@ import boto3
 import dateutil
 from ebs_snapper import utils, dynamo, timeout_check
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 
-def perform_fanout_all_regions(context):
+def perform_fanout_all_regions(context, cli=False):
     """For every region, run the supplied function"""
     # get regions, regardless of instances
     sns_topic = utils.get_topic_arn('CleanSnapshotTopic')
@@ -42,17 +42,20 @@ def perform_fanout_all_regions(context):
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
         sleep(5)  # API limit relief
-        send_fanout_message(context, region=region, topic_arn=sns_topic)
+        send_fanout_message(context, region=region, topic_arn=sns_topic, cli=cli)
 
     LOG.info('Function clean_perform_fanout_all_regions completed')
 
 
-def send_fanout_message(context, region, topic_arn):
+def send_fanout_message(context, region, topic_arn, cli=False):
     """Publish an SNS message to topic_arn that specifies a region to review snapshots on"""
     message = json.dumps({'region': region})
     LOG.debug('send_fanout_message: %s', message)
 
-    utils.sns_publish(TopicArn=topic_arn, Message=message)
+    if cli:
+        clean_snapshot(context, region)
+    else:
+        utils.sns_publish(TopicArn=topic_arn, Message=message)
     LOG.info('Function clean_send_fanout_message completed')
 
 

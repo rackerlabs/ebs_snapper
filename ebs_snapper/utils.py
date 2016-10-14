@@ -24,6 +24,7 @@
 from __future__ import print_function
 import logging
 import collections
+import datetime
 from time import sleep
 from datetime import timedelta
 import dateutil
@@ -32,7 +33,7 @@ from pytimeparse.timeparse import timeparse
 from crontab import CronTab
 import ebs_snapper
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 AWS_TAGS = [
     "Name",
     "BusinessUnit", "Group",
@@ -528,18 +529,33 @@ def find_deleteon_tags(region_name, cutoff_date, max_tags=10):
 
 class MockContext(object):
     """Context object when we're not running in lambda"""
+    # Useful information about the LambdaContext object
+    # https://gist.github.com/gene1wood/c0d37dfcb598fc133a8c
 
     def __init__(self):
-        # 2.5 minutes in millis
-        self.remaining_time = 150000
+        # session end timer (max lambda)
+        five_minutes = datetime.timedelta(minutes=5)
+        self.finish_time = datetime.datetime.now(dateutil.tz.tzutc()) + five_minutes
 
         # called to figure out owner
         self.invoked_function_arn = None
 
-    def get_remaining_time_in_millis(self):
-        """Always return 2.5 minutes, unless mocked otherwise"""
-        return self.remaining_time
 
-    def set_remaining_time_in_millis(self, millis):
-        """Used to mock other values"""
-        self.remaining_time = millis
+    def set_remaining_time_in_millis(self, remaining_millis):
+        now = datetime.datetime.now(dateutil.tz.tzutc())
+        self.finish_time = now + datetime.timedelta(milliseconds=remaining_millis)
+
+
+    def get_remaining_time_in_millis(self):
+        """Return 5 minutes minus remaining time"""
+        now = datetime.datetime.now(dateutil.tz.tzutc())
+        time_left = self.timedelta_milliseconds(self.finish_time - now)
+
+        if time_left < 0:
+            return 0
+        else:
+            return time_left
+
+
+    def timedelta_milliseconds(self, td):
+        return td.days*86400000 + td.seconds*1000 + td.microseconds/1000
