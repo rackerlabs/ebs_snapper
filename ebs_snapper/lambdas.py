@@ -28,7 +28,7 @@ import logging
 
 from ebs_snapper import snapshot, clean
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 
 def lambda_fanout_snapshot(event, context):
@@ -37,6 +37,8 @@ def lambda_fanout_snapshot(event, context):
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
     LOG.setLevel(logging.INFO)
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
 
     # for every region and every instance, send to this function
     snapshot.perform_fanout_all_regions(context)
@@ -50,6 +52,8 @@ def lambda_fanout_clean(event, context):
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
     LOG.setLevel(logging.INFO)
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
 
     # for every region, send to this function
     clean.perform_fanout_all_regions(context)
@@ -63,6 +67,8 @@ def lambda_snapshot(event, context):
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
     LOG.setLevel(logging.INFO)
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_snapshot must be invoked from an SNS topic: %s', str(event))
@@ -82,22 +88,14 @@ def lambda_snapshot(event, context):
 
         message_json = json.loads(message)
 
-        if not ('region' in message_json and
-                'instance_id' in message_json and
-                'settings' in message_json):
+        if 'region' not in message_json:
             LOG.warn('lambda_snapshot missing specific keys: %s', str(event))
             continue
-
-        if 'instance_data' in message_json:
-            opt_instance_data = message_json['instance_data']
 
         # call the snapshot perform method
         snapshot.perform_snapshot(
             context,
-            message_json['region'],
-            message_json['instance_id'],
-            message_json['settings'],
-            instance_data=opt_instance_data)
+            message_json['region'])
 
         LOG.info('Function lambda_snapshot completed')
 
@@ -108,6 +106,8 @@ def lambda_clean(event, context):
     # baseline logging for lambda
     logging.basicConfig(level=logging.INFO)
     LOG.setLevel(logging.INFO)
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_clean must be invoked from an SNS topic')

@@ -186,40 +186,6 @@ def test_get_instance():
 @mock_ec2
 @mock_iam
 @mock_sts
-def test_snapshot_helper_methods():
-    """Test for the snapshot helper methods"""
-    # def count_snapshots(volume_id, region):
-    region = 'us-west-2'
-
-    # create an instance and record the id
-    instance_id = mocks.create_instances(region, count=1)[0]
-
-    # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
-
-    # make some snapshots that should be deleted today too
-    now = datetime.now(dateutil.tz.tzutc())
-    delete_on = now.strftime('%Y-%m-%d')
-
-    # verify no snapshots, then we take one, then verify there is one
-    assert utils.most_recent_snapshot(volume_id, region) is None
-    utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
-    assert utils.most_recent_snapshot(volume_id, region) is not None
-
-    # make 5 more
-    for i in range(0, 5):  # pylint: disable=unused-variable
-        utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
-
-    # check the count is 6
-    assert utils.count_snapshots(volume_id, region) == 6
-
-    # check that if we pull them all, there's 6 there too
-    assert len(utils.get_snapshots_by_volume(volume_id, region)) == 6
-
-
-@mock_ec2
-@mock_iam
-@mock_sts
 def test_calculate_relevant_tags():
     """Confirm that tags are calculated correctly, and don't exceed 10"""
     # client.create_tags()
@@ -287,54 +253,6 @@ def test_calculate_relevant_tags():
         # moto returns tags in very random order, for testing purposes,
         # so I can't really test anything else with the foo-* tags here
     }
-    print(created_snap['Tags'])
 
     for k, v in expected_pairs.iteritems():
         assert {'Key': k, 'Value': v} in created_snap['Tags']
-
-
-@mock_ec2
-@mock_iam
-@mock_sts
-def test_find_deleteon_tags():
-    """test def find_deleteon_tags(region_name, cutoff_date, max_tags=10)"""
-
-    # client.create_tags()
-    region = 'us-west-2'
-
-    # make today's date
-    now = datetime.now(dateutil.tz.tzutc())
-
-    # create an instance and record the id
-    i = 0
-    created_instances = mocks.create_instances(region, count=15)
-
-    for instance_id in created_instances:
-        # some instance tags (pad to fill it after)
-        cutoff = now - timedelta(days=-i)
-        delete_on = cutoff.strftime('%Y-%m-%d')
-
-        # create the snapshot
-        volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
-        vol_data = utils.get_volume(volume_id, region=region)
-        inst_data = utils.get_instance(instance_id, region=region)
-
-        expected_tags = utils.calculate_relevant_tags(
-            inst_data.get('Tags'),
-            vol_data.get('Tags')
-        )
-        utils.snapshot_and_tag(instance_id,
-                               'ami-123abc',
-                               volume_id,
-                               delete_on,
-                               region,
-                               additional_tags=expected_tags)
-
-        found_tags = utils.find_deleteon_tags(region_name=region,
-                                              cutoff_date=cutoff.date(), max_tags=20)
-
-        # for instance_id in created_instances:
-        assert len(found_tags) > 0
-        assert str(now.strftime('%Y-%m-%d')) in found_tags
-
-        i += 1

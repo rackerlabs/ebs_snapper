@@ -23,9 +23,8 @@
 
 import json
 import datetime
-from datetime import timedelta
 from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_iam, mock_sts
-from ebs_snapper import snapshot, clean, utils, mocks, dynamo
+from ebs_snapper import clean, utils, mocks, dynamo
 import dateutil
 
 
@@ -49,10 +48,10 @@ def test_perform_fanout_all_regions_clean(mocker):
 
     # fan out, and be sure we touched every region
     clean.perform_fanout_all_regions(ctx)
-
     for r in expected_regions:
         clean.send_fanout_message.assert_any_call(  # pylint: disable=E1103
             ctx,
+            cli=False,
             region=r,
             topic_arn=expected_sns_topic)
 
@@ -79,50 +78,6 @@ def test_send_fanout_message_clean(mocker):
 @mock_dynamodb2
 @mock_iam
 @mock_sts
-def test_clean_snapshot(mocker):
-    """Test for method of the same name."""
-    # def clean_snapshot(region):
-    region = 'us-east-1'
-    ctx = utils.MockContext()
-
-    # need an instance to get figure out an owner
-    instance_id = mocks.create_instances(region, count=1)[0]
-    owner_ids = utils.get_owner_id(ctx)
-
-    # setup the min # snaps for the instance
-    config_data = {
-        "match": {"instance-id": instance_id},
-        "snapshot": {
-            "retention": "-7 days", "minimum": 0, "frequency": "13 hours"
-        }
-    }
-
-    # put it in the table, be sure it succeeded
-    mocks.create_dynamodb(region)
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
-
-    # make a snapshot, so we can find it and delete it
-    snapshot.perform_snapshot(ctx, region, instance_id, config_data)
-
-    # mock the over-arching method that just loops over the last 10 days
-    now = datetime.datetime.now(dateutil.tz.tzutc())
-    mocker.patch('ebs_snapper.clean.clean_snapshots_tagged')
-    clean.clean_snapshot(ctx, region, started_run=now)
-
-    # be sure we call delete for the negative retention in -7 days
-    delete_on = datetime.date.today() + timedelta(days=-7)
-    clean.clean_snapshots_tagged.assert_any_call(  # pylint: disable=E1103
-        ctx,
-        delete_on.strftime('%Y-%m-%d'),
-        owner_ids,
-        region,
-        [config_data])
-
-
-@mock_ec2
-@mock_dynamodb2
-@mock_iam
-@mock_sts
 def test_clean_tagged_snapshots(mocker):
     """Test for method of the same name."""
     # default settings
@@ -132,7 +87,6 @@ def test_clean_tagged_snapshots(mocker):
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]
     ctx = utils.MockContext()
-    owner_ids = utils.get_owner_id(ctx)
 
     # setup the min # snaps for the instance
     config_data = {
@@ -155,9 +109,7 @@ def test_clean_tagged_snapshots(mocker):
     snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
 
     mocker.patch('ebs_snapper.utils.delete_snapshot')
-    clean.clean_snapshots_tagged(ctx,
-                                 now.strftime('%Y-%m-%d'),
-                                 owner_ids, region, [config_data])
+    clean.clean_snapshot(ctx, region)
 
     # ensure we deleted this snapshot if it was ready to die today
     utils.delete_snapshot.assert_any_call(snapshot_id, region)  # pylint: disable=E1103
@@ -166,8 +118,7 @@ def test_clean_tagged_snapshots(mocker):
     utils.delete_snapshot.reset_mock()  # pylint: disable=E1103
     config_data['snapshot']['minimum'] = 5
     dynamo.store_configuration(region, 'foo', '111122223333', config_data)
-    clean.clean_snapshots_tagged(ctx, now.strftime('%Y-%m-%d'),
-                                 owner_ids, region, [config_data])
+    clean.clean_snapshot(ctx, region)
     utils.delete_snapshot.assert_not_called()  # pylint: disable=E1103
 
 
@@ -185,7 +136,6 @@ def test_clean_snapshots_tagged_timeout(mocker):
 
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]
-    owner_ids = utils.get_owner_id(ctx)
 
     # setup the min # snaps for the instance
     config_data = {
@@ -207,9 +157,7 @@ def test_clean_snapshots_tagged_timeout(mocker):
     utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
 
     mocker.patch('ebs_snapper.utils.delete_snapshot')
-    clean.clean_snapshots_tagged(ctx,
-                                 now.strftime('%Y-%m-%d'),
-                                 owner_ids, region, [config_data])
+    clean.clean_snapshot(ctx, region)
 
     # ensure we DO NOT take a snapshot if our runtime was 5 minutes
     assert not utils.delete_snapshot.called

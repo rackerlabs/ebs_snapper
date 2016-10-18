@@ -31,7 +31,7 @@ import json
 import ebs_snapper
 from ebs_snapper import snapshot, clean, dynamo, utils, deploy
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 CTX = utils.MockContext()
 
 
@@ -40,6 +40,9 @@ def main(arv=None):
     # Check for Python 2.7 (required for Lambda)
     if not (sys.version_info[0] == 2 and sys.version_info[1] == 7):
         raise RuntimeError('ebs-snapper requires Python 2.7')
+
+    # allow 15m for the cli, instead of lambda's 5
+    CTX.set_remaining_time_in_millis(60000*15)
 
     parser = argparse.ArgumentParser(
         version=('version %s' % ebs_snapper.__version__),
@@ -122,8 +125,14 @@ def main(arv=None):
     # do all the things!
     try:
         args = parser.parse_args()
+
+        # make sure boto stays quiet
+        logging.getLogger('botocore').setLevel(logging.WARNING)
+        logging.getLogger('boto3').setLevel(logging.WARNING)
+
         logging.basicConfig(level=args.loglevel)
         LOG.setLevel(args.loglevel)
+
         args.func(args)
     except Exception:  # pylint: disable=broad-except
         print('Unexpected error. Please report this traceback.', file=sys.stderr)
@@ -136,33 +145,15 @@ def main(arv=None):
 def shell_fanout_snapshot(*args):
     """Print fanout JSON messages, instead of sending them like lambda version."""
     # for every region and every instance, send to this function
-    snapshot.perform_fanout_all_regions(CTX)
+    snapshot.perform_fanout_all_regions(CTX, cli=True)
     LOG.info('Function shell_fanout_snapshot completed')
 
 
 def shell_fanout_clean(*args):
     """Print fanout JSON messages, instead of sending them like lambda version."""
     # for every region, send to this function
-    clean.perform_fanout_all_regions(CTX)
+    clean.perform_fanout_all_regions(CTX, cli=True)
     LOG.info('Function shell_fanout_clean completed')
-
-
-def shell_snapshot(*args):
-    """Check for snapshots, executing if needed, like lambda version."""
-    message_json = json.loads(args[0].message)
-
-    if 'instance_data' in message_json:
-        d = message_json['instance_data']
-
-    # call the snapshot perform method
-    snapshot.perform_snapshot(
-        CTX,
-        message_json['region'],
-        message_json['instance_id'],
-        message_json['settings'],
-        instance_data=d)
-
-    LOG.info('Function shell_snapshot completed')
 
 
 def shell_deploy(*args):
@@ -177,16 +168,6 @@ def shell_deploy(*args):
         )
 
     LOG.info('Function shell_deploy completed')
-
-
-def shell_clean(*args):
-    """Check for deletable snapshots, executing if needed, like lambda version."""
-    message_json = json.loads(args[0].message)
-
-    # call the snapshot cleanup method
-    clean.clean_snapshot(CTX, message_json['region'])
-
-    LOG.info('Function shell_clean completed')
 
 
 def shell_configure(*args):

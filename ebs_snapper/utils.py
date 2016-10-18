@@ -24,15 +24,19 @@
 from __future__ import print_function
 import logging
 import collections
-from time import sleep
+import random
+import datetime
 from datetime import timedelta
+from multiprocessing.pool import ThreadPool
+import functools
+from time import sleep
 import dateutil
 import boto3
 from pytimeparse.timeparse import timeparse
 from crontab import CronTab
 import ebs_snapper
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 AWS_TAGS = [
     "Name",
     "BusinessUnit", "Group",
@@ -228,17 +232,6 @@ def get_instance(instance_id, region):
     return instances[0]
 
 
-def count_snapshots(volume_id, region):
-    """count how many snapshots exist for this volume"""
-    count = 0
-
-    page_iterator = build_snapshot_paginator([volume_id], region)
-    for page in page_iterator:
-        count += len(page['Snapshots'])
-
-    return count
-
-
 def most_recent_snapshot(volume_id, region):
     """find and return the most recent snapshot"""
     recent = {}
@@ -321,8 +314,8 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
         Tags=full_tags
     )
 
-    LOG.warn('Finished snapshot in %s of volume %s, valid until %s',
-             region, volume_id, delete_on)
+    LOG.debug('Finished snapshot in %s of volume %s, valid until %s',
+              region, volume_id, delete_on)
 
 
 def delete_snapshot(snapshot_id, region):
@@ -490,56 +483,177 @@ def is_timedelta_expression(expr):
     return False
 
 
-def find_deleteon_tags(region_name, cutoff_date, max_tags=10):
-    """Get tags before cutoff date on snaps in region, max returned tags"""
-    ec2 = boto3.client('ec2', region_name=region_name)
-    results_found = []
+def build_cache_maps(context, configurations, region, installed_region):
+    """Build a giant cache of instances, volumes, snapshots for region"""
+    LOG.info("Building cache of instance, volume, and snapshots in %s",
+             region)
+    LOG.info("This may take a while...")
+    cache_data = {
+        # calculated here locally
+        'instance_id_to_data': {},
+        'instance_id_to_config': {},
+        'volume_id_to_instance_id': {},
 
-    filter_for_tags = [{'Name': 'resource-type', 'Values': ['snapshot']},
-                       {'Name': 'key', 'Values': ['DeleteOn']}]
+        # calculated w/ multiprocessing module
+        'snapshot_id_to_data': {},
+        'volume_id_to_snapshot_count': {},
+        'volume_id_to_most_recent_snapshot_date': {},
+    }
 
-    tag_paginator = ec2.get_paginator('describe_tags')
-    operation_parameters = {'Filters': filter_for_tags}
+    # build an EC2 client, we're going to need it
+    ec2 = boto3.client('ec2', region_name=region)
 
-    # paginate -- there might be a lot of tags
-    for page in tag_paginator.paginate(**operation_parameters):
-        # if we don't get even a page of results, or missing hash key, skip
-        if not page and 'Tags' not in page:
+    if len(configurations) <= 0:
+        LOG.info('No configurations found in %s, not building cache', region)
+        return cache_data
+
+    # populate them
+    LOG.info("Retrieved %s DynamoDB configurations for caching",
+             str(len(configurations)))
+    for config in configurations:
+        # stop if we're running out of time
+        if ebs_snapper.timeout_check(context, 'build_cache_maps'):
+            break
+
+        # if it's missing the match section, ignore it
+        if not validate_snapshot_settings(config):
             continue
 
-        # iterate over each 'Tags' entry
-        for found_tag in page.get('Tags', []):
+        # build a boto3 filter to describe instances with
+        configuration_matches = config['match']
+        filters = convert_configurations_to_boto_filter(configuration_matches)
 
-            # don't bother parsing a tag we're already going to return
-            if found_tag['Value'] in results_found:
-                continue
+        # if we ended up with no boto3 filters, we bail so we don't snapshot everything
+        if len(filters) <= 0:
+            LOG.warn('Could not convert configuration match to a filter: %s',
+                     configuration_matches)
+            continue
 
-            # try to understand that tag
-            if dateutil.parser.parse(found_tag['Value']).date() <= cutoff_date:
-                results_found.append(found_tag['Value'])
+        filters.append({'Name': 'instance-state-name',
+                        'Values': ['running', 'stopped']})
+        instances = ec2.describe_instances(Filters=filters)
+        res_list = instances.get('Reservations', [])
+        random.shuffle(res_list)  # attempt to randomize order, for timeouts
 
-            # get out if we ever add an element and go over the max
-            if len(results_found) > max_tags:
-                break
+        for reservation in res_list:
+            inst_list = reservation.get('Instances', [])
+            random.shuffle(inst_list)  # attempt to randomize order, for timeouts
 
-    # return max values at most, sorted by lexical (oldest!)
-    return sorted(results_found[:max_tags])
+            for instance_data in inst_list:
+                instance_id = instance_data['InstanceId']
+
+                cache_data['instance_id_to_config'][instance_id] = config
+                cache_data['instance_id_to_data'][instance_id] = instance_data
+                for dev in instance_data.get('BlockDeviceMappings', []):
+                    vid = dev['Ebs']['VolumeId']
+                    cache_data['volume_id_to_instance_id'][vid] = instance_id
+
+    LOG.info("Retrieved %s instances for caching",
+             str(len(cache_data['instance_id_to_data'].keys())))
+
+    # look at each volume, get snapshots and count / most recent, and map to instance
+    process_volumes = cache_data['volume_id_to_instance_id'].keys()[:]
+    LOG.info("Retrieved %s volumes for caching",
+             str(len(process_volumes)))
+
+    chunked_work = []
+    while len(process_volumes) > 0:
+        popped = process_volumes[:25]
+        del process_volumes[:25]
+        chunked_work.append(popped)
+
+    LOG.debug('Split out volume work into %s lists, pulling snapshots...',
+              str(len(chunked_work)))
+
+    if len(chunked_work) > 0:
+        f = functools.partial(chunk_volume_work, region)
+        pool = ThreadPool(processes=4)
+        results = pool.map(f, chunked_work)
+        pool.close()
+        pool.join()
+
+        keys = ['volume_id_to_most_recent_snapshot_date',
+                'volume_id_to_snapshot_count',
+                'snapshot_id_to_data']
+        for result_chunk in results:
+            for k in keys:
+                cache_data[k].update(result_chunk[k])
+
+    LOG.info("Retrieved %s snapshots for caching",
+             str(len(cache_data['snapshot_id_to_data'])))
+
+    return cache_data
+
+
+def chunk_volume_work(region, volume_list):
+    """Used to multiprocess fanout fetching snapshots for volumes"""
+    volume_id_to_most_recent_snapshot_date = {}
+    volume_id_to_snapshot_count = {}
+    snapshot_id_to_data = {}
+    LOG.debug("Pulling snapshots for: %s", str(volume_list))
+
+    session = boto3.session.Session(region_name=region)
+    ec2 = session.client('ec2')
+
+    paginator = ec2.get_paginator('describe_snapshots')
+    operation_parameters = {'Filters': [
+        {'Name': 'volume-id', 'Values': volume_list}
+    ]}
+    page_iterator = paginator.paginate(**operation_parameters)
+
+    for page in page_iterator:
+        for snap in page['Snapshots']:
+            # just save it
+            snapshot_id_to_data[snap['SnapshotId']] = snap
+
+            vid = snap['VolumeId']
+            pre_ct = volume_id_to_snapshot_count.get(vid, 0)
+            pre_ct += 1
+            volume_id_to_snapshot_count[vid] = pre_ct
+
+            pre_date = volume_id_to_most_recent_snapshot_date.get(vid, None)
+            cur_date = snap['StartTime']
+            if pre_date is None:
+                volume_id_to_most_recent_snapshot_date[vid] = cur_date
+            elif cur_date > pre_date:
+                volume_id_to_most_recent_snapshot_date[vid] = cur_date
+
+    return {
+        'volume_id_to_most_recent_snapshot_date': volume_id_to_most_recent_snapshot_date,
+        'volume_id_to_snapshot_count': volume_id_to_snapshot_count,
+        'snapshot_id_to_data': snapshot_id_to_data
+    }
 
 
 class MockContext(object):
     """Context object when we're not running in lambda"""
+    # Useful information about the LambdaContext object
+    # https://gist.github.com/gene1wood/c0d37dfcb598fc133a8c
 
     def __init__(self):
-        # 2.5 minutes in millis
-        self.remaining_time = 150000
+        # session end timer (max lambda)
+        five_minutes = datetime.timedelta(minutes=5)
+        self.finish_time = datetime.datetime.now(dateutil.tz.tzutc()) + five_minutes
 
         # called to figure out owner
         self.invoked_function_arn = None
 
-    def get_remaining_time_in_millis(self):
-        """Always return 2.5 minutes, unless mocked otherwise"""
-        return self.remaining_time
+    def set_remaining_time_in_millis(self, remaining_millis):
+        """set the remaining time, for mocks"""
+        now = datetime.datetime.now(dateutil.tz.tzutc())
+        self.finish_time = now + datetime.timedelta(milliseconds=remaining_millis)
 
-    def set_remaining_time_in_millis(self, millis):
-        """Used to mock other values"""
-        self.remaining_time = millis
+    def get_remaining_time_in_millis(self):
+        """Return 5 minutes minus remaining time"""
+        now = datetime.datetime.now(dateutil.tz.tzutc())
+        time_left = self.timedelta_milliseconds(self.finish_time - now)
+
+        if time_left < 0:
+            return 0
+        else:
+            return time_left
+
+    @staticmethod
+    def timedelta_milliseconds(td):
+        """return milliseconds from a timedelta"""
+        return td.days*86400000 + td.seconds*1000 + td.microseconds/1000

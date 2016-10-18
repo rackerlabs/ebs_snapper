@@ -29,14 +29,17 @@ __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright Rackspace US, Inc. 2015-2016'
 __url__ = 'https://github.com/rackerlabs/ebs-snapper-lambda-v2'
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 
 
 def timeout_check(context, place):
     """Return True if we have less than 1 minute remaining"""
 
-    if context.get_remaining_time_in_millis() < 60000:
-        LOG.warn('Lambda/Less than 1m: %s', place)
+    remaining = context.get_remaining_time_in_millis()
+    if remaining < 60000:  # 1 minute
+        LOG.warn('Lambda/Less than 1m remaining in function (%sms): %s',
+                 str(remaining),
+                 place)
         return True
 
     return False

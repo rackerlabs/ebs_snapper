@@ -40,6 +40,7 @@ def test_perform_fanout_all_regions_snapshot(mocker):
 
     # make a dummy SNS topic
     mocks.create_sns_topic('CreateSnapshotTopic')
+    expected_sns_topic = utils.get_topic_arn('CreateSnapshotTopic', 'us-east-1')
 
     dummy_regions = ['us-west-2', 'us-east-1']
 
@@ -67,14 +68,16 @@ def test_perform_fanout_all_regions_snapshot(mocker):
 
     # patch the final message sender method
     ctx = utils.MockContext()
-    mocker.patch('ebs_snapper.snapshot.perform_fanout_by_region')
+    mocker.patch('ebs_snapper.snapshot.send_fanout_message')
     snapshot.perform_fanout_all_regions(ctx)
 
     # fan out, and be sure we touched every instance we created before
     for r in dummy_regions:
-        snapshot.perform_fanout_by_region.assert_any_call(
-            ctx,
-            r)  # pylint: disable=E1103
+        snapshot.send_fanout_message.assert_any_call(
+            context=ctx,
+            region=r,
+            sns_topic=expected_sns_topic,
+            cli=False)  # pylint: disable=E1103
 
 
 @mock_ec2
@@ -82,62 +85,11 @@ def test_perform_fanout_all_regions_snapshot(mocker):
 @mock_sns
 @mock_iam
 @mock_sts
-def test_perform_fanout_by_region_snapshot(mocker):
-    """Test for method of the same name."""
-
-    # make a dummy SNS topic
-    mocks.create_sns_topic('CreateSnapshotTopic', 'us-east-1')
-    expected_sns_topic = utils.get_topic_arn('CreateSnapshotTopic', 'us-east-1')
-
-    dummy_regions = ['us-west-2', 'us-east-1']
-
-    # make some dummy instances in two regions
-    region_map = {}
-    for dummy_region in dummy_regions:
-        client = boto3.client('ec2', region_name=dummy_region)
-        create_results = client.run_instances(ImageId='ami-123abc', MinCount=5, MaxCount=5)
-        for instance_data in create_results['Instances']:
-            region_map[instance_data['InstanceId']] = dummy_region
-
-    # need to filter instances, so need dynamodb present
-    mocks.create_dynamodb('us-east-1')
-    config_data = {
-        "match": {
-            "instance-id": region_map.keys()
-        },
-        "snapshot": {
-            "retention": "4 days",
-            "minimum": 5,
-            "frequency": "12 hours"
-        }
-    }
-    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', config_data)
-
-    # patch the final message sender method
-    mocker.patch('ebs_snapper.snapshot.send_fanout_message')
-
-    # fan out, and be sure we touched every instance we created before
-    snapshot.perform_fanout_all_regions(utils.MockContext())
-
-    print(snapshot.send_fanout_message.mock_calls)
-    for key, value in region_map.iteritems():
-        # refetch the instance data, to be sure it matches at call time
-        my_instance_data = utils.get_instance(key, value)
-        snapshot.send_fanout_message.assert_any_call(  # pylint: disable=E1103
-            instance_id=key,
-            region=value,
-            topic_arn=expected_sns_topic,
-            snapshot_settings=config_data,
-            instance_data=my_instance_data)
-
-
-@mock_ec2
-@mock_iam
-@mock_sts
 def test_perform_snapshot(mocker):
     """Test for method of the same name."""
     # some default settings for this test
     region = 'us-west-2'
+
     snapshot_settings = {
         'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
         'match': {'tag:backup': 'yes'}
@@ -145,6 +97,10 @@ def test_perform_snapshot(mocker):
 
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]
+
+    # need to filter instances, so need dynamodb present
+    mocks.create_dynamodb('us-east-1')
+    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
 
     # figure out the EBS volume that came with our instance
     instance_details = utils.get_instance(instance_id, region)
@@ -162,6 +118,7 @@ def test_perform_snapshot(mocker):
     instance_tags = [
         {'Key': 'Name', 'Value': 'Foo'},
         {'Key': 'Service', 'Value': 'Bar'},
+        {'Key': 'backup', 'Value': 'yes'},
     ]
     client.create_tags(DryRun=False, Resources=[instance_id], Tags=instance_tags)
 
@@ -173,6 +130,7 @@ def test_perform_snapshot(mocker):
     tags = [
         {'Key': 'Name', 'Value': 'Foo'},
         {'Key': 'Service', 'Value': 'Baz'},
+        {'Key': 'backup', 'Value': 'yes'},
     ]
 
     # patch the final method that takes a snapshot
@@ -180,7 +138,7 @@ def test_perform_snapshot(mocker):
 
     # since there are no snapshots, we should expect this to trigger one
     ctx = utils.MockContext()
-    snapshot.perform_snapshot(ctx, region, instance_id, snapshot_settings)
+    snapshot.perform_snapshot(ctx, region)
 
     # test results
     utils.snapshot_and_tag.assert_any_call(  # pylint: disable=E1103
@@ -193,6 +151,8 @@ def test_perform_snapshot(mocker):
 
 
 @mock_ec2
+@mock_dynamodb2
+@mock_sns
 @mock_iam
 @mock_sts
 def test_perform_snapshot_skipped(mocker):
@@ -203,6 +163,8 @@ def test_perform_snapshot_skipped(mocker):
         'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
         'match': {'tag:backup': 'yes'}
     }
+    mocks.create_dynamodb('us-east-1')
+    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
 
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]
@@ -226,7 +188,7 @@ def test_perform_snapshot_skipped(mocker):
 
     # since there are no snapshots, we should expect this to trigger one
     ctx = utils.MockContext()
-    snapshot.perform_snapshot(ctx, region, instance_id, snapshot_settings)
+    snapshot.perform_snapshot(ctx, region)
 
     # test results (should not create a second snapshot)
     utils.snapshot_and_tag.assert_not_called()  # pylint: disable=E1103
@@ -247,7 +209,7 @@ def test_should_perform_snapshot():
         CronTab('0 1 ? * SUN'),  # sunday at 01:00 UTC
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
-        recent={'StartTime': datetime.datetime(2016, 7, 24, 01, 05)}  # 2016-07-24 at 1:05 UTC
+        recent=datetime.datetime(2016, 7, 24, 01, 05)  # 2016-07-24 at 1:05 UTC
         ) is False
 
     # it's been a week! snap it!
@@ -255,7 +217,7 @@ def test_should_perform_snapshot():
         CronTab('0 1 ? * SUN'),  # sunday at 01:00 UTC
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
-        recent={'StartTime': datetime.datetime(2016, 7, 17, 01, 05)}  # 2016-07-17 at 1:05 UTC
+        recent=datetime.datetime(2016, 7, 17, 01, 05)  # 2016-07-17 at 1:05 UTC
         )
 
     # it's been forever, and we snap it hourly!
@@ -263,7 +225,7 @@ def test_should_perform_snapshot():
         CronTab('@hourly'),  # sunday at 01:00 UTC
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
-        recent={'StartTime': datetime.datetime(2016, 7, 17, 01, 05)}  # 2016-07-17 at 1:05 UTC
+        recent=datetime.datetime(2016, 7, 17, 01, 05)  # 2016-07-17 at 1:05 UTC
         )
 
     # it's been ten minutes, and we only snap it hourly -- stop it!
@@ -271,5 +233,5 @@ def test_should_perform_snapshot():
         CronTab('@hourly'),  # sunday at 01:00 UTC
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
-        recent={'StartTime': datetime.datetime(2016, 7, 24, 02, 35)}  # 2016-07-24 at 2:35 UTC
+        recent=datetime.datetime(2016, 7, 24, 02, 35)  # 2016-07-24 at 2:35 UTC
         ) is False

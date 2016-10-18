@@ -35,7 +35,7 @@ from lambda_uploader import package as lu_package
 import ebs_snapper
 from ebs_snapper import utils
 
-LOG = logging.getLogger(__name__)
+LOG = logging.getLogger()
 DEFAULT_REGION = 'us-east-1'
 STACK_WAIT_STATUS = ['CREATE_IN_PROGRESS', 'UPDATE_IN_PROGRESS',
                      'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS']
