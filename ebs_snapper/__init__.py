@@ -36,8 +36,10 @@ def timeout_check(context, place):
     """Return True if we have less than 1 minute remaining"""
 
     remaining = context.get_remaining_time_in_millis()
-    if remaining < 60000:
-        LOG.warn('Lambda/Less than 1m (%sms): %s', str(remaining), place)
+    if remaining < 60000:  # 1 minute
+        LOG.warn('Lambda/Less than 1m remaining in function (%sms): %s',
+                 str(remaining),
+                 place)
         return True
 
     return False

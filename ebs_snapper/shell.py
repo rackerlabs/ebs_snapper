@@ -41,6 +41,9 @@ def main(arv=None):
     if not (sys.version_info[0] == 2 and sys.version_info[1] == 7):
         raise RuntimeError('ebs-snapper requires Python 2.7')
 
+    # allow 15m for the cli, instead of lambda's 5
+    CTX.set_remaining_time_in_millis(60000*15)
+
     parser = argparse.ArgumentParser(
         version=('version %s' % ebs_snapper.__version__),
         description='Configure, cleanup, or take scheduled EBS volume snapshots')

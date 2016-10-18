@@ -27,7 +27,7 @@ import collections
 import random
 import datetime
 from datetime import timedelta
-import multiprocessing
+from multiprocessing.pool import ThreadPool
 import functools
 from time import sleep
 import dateutil
@@ -485,7 +485,8 @@ def is_timedelta_expression(expr):
 
 def build_cache_maps(context, configurations, region, installed_region):
     """Build a giant cache of instances, volumes, snapshots for region"""
-    LOG.info("Building large cache of instance, volume, and snapshot data")
+    LOG.info("Building cache of instance, volume, and snapshots in %s",
+             region)
     LOG.info("This may take a while...")
     cache_data = {
         # calculated here locally
@@ -507,6 +508,8 @@ def build_cache_maps(context, configurations, region, installed_region):
         return cache_data
 
     # populate them
+    LOG.info("Retrieved %s DynamoDB configurations for caching",
+             str(len(configurations)))
     for config in configurations:
         # stop if we're running out of time
         if ebs_snapper.timeout_check(context, 'build_cache_maps'):
@@ -545,8 +548,13 @@ def build_cache_maps(context, configurations, region, installed_region):
                     vid = dev['Ebs']['VolumeId']
                     cache_data['volume_id_to_instance_id'][vid] = instance_id
 
+    LOG.info("Retrieved %s instances for caching",
+             str(len(cache_data['instance_id_to_data'].keys())))
+
     # look at each volume, get snapshots and count / most recent, and map to instance
     process_volumes = cache_data['volume_id_to_instance_id'].keys()[:]
+    LOG.info("Retrieved %s volumes for caching",
+             str(len(process_volumes)))
 
     chunked_work = []
     while len(process_volumes) > 0:
@@ -559,7 +567,7 @@ def build_cache_maps(context, configurations, region, installed_region):
 
     if len(chunked_work) > 0:
         f = functools.partial(chunk_volume_work, region)
-        pool = multiprocessing.Pool(processes=4)
+        pool = ThreadPool(processes=4)
         results = pool.map(f, chunked_work)
         pool.close()
         pool.join()
@@ -570,6 +578,9 @@ def build_cache_maps(context, configurations, region, installed_region):
         for result_chunk in results:
             for k in keys:
                 cache_data[k].update(result_chunk[k])
+
+    LOG.info("Retrieved %s snapshots for caching",
+             str(len(cache_data['snapshot_id_to_data'])))
 
     return cache_data
 
