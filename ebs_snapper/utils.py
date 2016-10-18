@@ -232,17 +232,6 @@ def get_instance(instance_id, region):
     return instances[0]
 
 
-def count_snapshots(volume_id, region):
-    """count how many snapshots exist for this volume"""
-    count = 0
-
-    page_iterator = build_snapshot_paginator([volume_id], region)
-    for page in page_iterator:
-        count += len(page['Snapshots'])
-
-    return count
-
-
 def most_recent_snapshot(volume_id, region):
     """find and return the most recent snapshot"""
     recent = {}

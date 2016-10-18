@@ -186,40 +186,6 @@ def test_get_instance():
 @mock_ec2
 @mock_iam
 @mock_sts
-def test_snapshot_helper_methods():
-    """Test for the snapshot helper methods"""
-    # def count_snapshots(volume_id, region):
-    region = 'us-west-2'
-
-    # create an instance and record the id
-    instance_id = mocks.create_instances(region, count=1)[0]
-
-    # figure out the EBS volume that came with our instance
-    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
-
-    # make some snapshots that should be deleted today too
-    now = datetime.now(dateutil.tz.tzutc())
-    delete_on = now.strftime('%Y-%m-%d')
-
-    # verify no snapshots, then we take one, then verify there is one
-    assert utils.most_recent_snapshot(volume_id, region) is None
-    utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
-    assert utils.most_recent_snapshot(volume_id, region) is not None
-
-    # make 5 more
-    for i in range(0, 5):  # pylint: disable=unused-variable
-        utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
-
-    # check the count is 6
-    assert utils.count_snapshots(volume_id, region) == 6
-
-    # check that if we pull them all, there's 6 there too
-    assert len(utils.get_snapshots_by_volume(volume_id, region)) == 6
-
-
-@mock_ec2
-@mock_iam
-@mock_sts
 def test_calculate_relevant_tags():
     """Confirm that tags are calculated correctly, and don't exceed 10"""
     # client.create_tags()
