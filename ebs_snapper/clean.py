@@ -66,12 +66,18 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
 
     # fetch these, in case we need to figure out what applies to an instance
     configurations = dynamo.list_configurations(context, installed_region)
-    LOG.info('Fetched all possible configuration rules from DynamoDB')
+    LOG.debug('Fetched all possible configuration rules from DynamoDB')
+
+    # setup some lookup tables
+    cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
+    instance_configs = cache_data['instance_id_to_config']
+    all_volumes = cache_data['volume_id_to_instance_id']
+    volume_snap_count = cache_data['volume_id_to_snapshot_count']
 
     # figure out what dates we want to nuke
     today = datetime.date.today()
     delete_on_values = []
-    for i in range(0, 7):  # seven days ago until today
+    for i in range(0, 8):  # seven days ago until today
         del_date = today + timedelta(days=-i)
         delete_on_values.append(del_date.strftime('%Y-%m-%d'))
 
@@ -104,24 +110,29 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
             # ugly comprehension to strip out a tag
             delete_on = [r['Value'] for r in snap['Tags'] if r.get('Key') == 'DeleteOn'][0]
 
+            # volume for snapshot
+            snapshot_volume = snap['VolumeId']
+            minimum_snaps = default_min_snaps
+
             # attempt to identify the instance this applies to, so we can check minimums
             try:
-                snapshot_volume = snap['VolumeId']
-                volume_instance = utils.get_instance_by_volume(snapshot_volume, region)
+                # given volume id, get the instance for it
+                volume_instance = all_volumes.get(snapshot_volume, None)
 
                 # minimum required
-                if volume_instance is None:
-                    minimum_snaps = default_min_snaps
-                else:
-                    snapshot_settings = utils.get_snapshot_settings_by_instance(
-                        volume_instance, configurations, region)
-                    minimum_snaps = snapshot_settings['snapshot']['minimum']
+                if volume_instance is not None:
+                    snapshot_settings = instance_configs.get(volume_instance, None)
+                    if snapshot_settings is not None:
+                        minimum_snaps = snapshot_settings['snapshot']['minimum']
 
                 # current number of snapshots
-                no_snaps = utils.count_snapshots(snapshot_volume, region)
+                if snapshot_volume in volume_snap_count:
+                    no_snaps = volume_snap_count[snapshot_volume]
+                else:
+                    no_snaps = 0
 
                 # if we have less than the minimum, don't delete this one
-                if no_snaps < minimum_snaps:
+                if no_snaps <= minimum_snaps:
                     LOG.warn('Not deleting snapshot %s from %s (%s)',
                              snap['SnapshotId'], region, delete_on)
                     LOG.warn('Only %s snapshots exist, below minimum of %s',
@@ -134,15 +145,15 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
                 LOG.warn('Error analyzing snapshot %s from %s, skipping... (%s)',
                          snap['SnapshotId'],
                          region,
-                         delete_on
-                        )
+                         delete_on)
                 continue
 
-            LOG.warn('Deleting snapshot %s from %s (%s)',
+            LOG.warn('Deleting snapshot %s from %s (%s, count=%s > %s)',
                      snap['SnapshotId'],
                      region,
-                     delete_on
-                    )
+                     delete_on,
+                     volume_snap_count.get(snapshot_volume, 'unknown'),
+                     minimum_snaps)
             deleted_count += utils.delete_snapshot(snap['SnapshotId'], region)
 
     if deleted_count <= 0:

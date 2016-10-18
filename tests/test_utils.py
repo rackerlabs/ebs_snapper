@@ -287,7 +287,6 @@ def test_calculate_relevant_tags():
         # moto returns tags in very random order, for testing purposes,
         # so I can't really test anything else with the foo-* tags here
     }
-    print(created_snap['Tags'])
 
     for k, v in expected_pairs.iteritems():
         assert {'Key': k, 'Value': v} in created_snap['Tags']

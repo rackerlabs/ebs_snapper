@@ -88,22 +88,14 @@ def lambda_snapshot(event, context):
 
         message_json = json.loads(message)
 
-        if not ('region' in message_json and
-                'instance_id' in message_json and
-                'settings' in message_json):
+        if 'region' not in message_json:
             LOG.warn('lambda_snapshot missing specific keys: %s', str(event))
             continue
-
-        if 'instance_data' in message_json:
-            opt_instance_data = message_json['instance_data']
 
         # call the snapshot perform method
         snapshot.perform_snapshot(
             context,
-            message_json['region'],
-            message_json['instance_id'],
-            message_json['settings'],
-            instance_data=opt_instance_data)
+            message_json['region'])
 
         LOG.info('Function lambda_snapshot completed')
 

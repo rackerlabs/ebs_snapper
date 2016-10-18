@@ -25,12 +25,10 @@ from __future__ import print_function
 from time import sleep
 import json
 import logging
-import random
 from datetime import timedelta
 import datetime
 import dateutil
 
-import boto3
 from ebs_snapper import utils, dynamo, timeout_check
 
 
@@ -39,165 +37,99 @@ LOG = logging.getLogger()
 
 def perform_fanout_all_regions(context, cli=False):
     """For every region, run the supplied function"""
+
+    sns_topic = utils.get_topic_arn('CreateSnapshotTopic')
+    LOG.debug('perform_fanout_all_regions using SNS topic %s', sns_topic)
+
     # get regions with instances running or stopped
     regions = utils.get_regions(must_contain_instances=True)
     for region in regions:
-        if timeout_check(context, 'perform_fanout_by_region'):
-            break
         sleep(5)  # API rate limiting help
-        perform_fanout_by_region(context, region, cli=cli)
 
-
-def perform_fanout_by_region(context, region, cli=False, installed_region='us-east-1'):
-    """For a specific region, run this function for every matching instance"""
-
-    sns_topic = utils.get_topic_arn('CreateSnapshotTopic', installed_region)
-
-    # get all configurations, so we can filter instances
-    configurations = dynamo.list_configurations(context, installed_region)
-    if len(configurations) <= 0:
-        LOG.warn('No EBS snapshot configurations were found for region %s', region)
-        LOG.warn('No new snapshots will be created for region %s', region)
-
-    # for every configuration
-    LOG.info("Loading every configuration; considering region %r", region)
-    random.shuffle(configurations)
-    for config in configurations:
-        if timeout_check(context, 'perform_fanout_by_region'):
-            break
-        sleep(5)  # API rate limiting help
-        # if it's missing the match section, ignore it
-        if not utils.validate_snapshot_settings(config):
-            continue
-
-        # build a boto3 filter to describe instances with
-        configuration_matches = config['match']
-
-        filters = utils.convert_configurations_to_boto_filter(configuration_matches)
-
-        # if we ended up with no boto3 filters, we bail so we don't snapshot everything
-        if len(filters) <= 0:
-            LOG.warn('Could not convert configuration match to a filter: %s',
-                     configuration_matches)
-            continue
-
-        # send a message for each instance in this region, to
-        # evaluate if it should create a snapshot
-        send_message_instances(
+        send_fanout_message(
             context=context,
             region=region,
             sns_topic=sns_topic,
-            configuration_snapshot=config,
-            filters=filters,
             cli=cli)
 
 
-def send_message_instances(context, region, sns_topic, configuration_snapshot, filters, cli=False):
+def send_fanout_message(context, region, sns_topic, cli=False):
     """Send message to all instance_id's in region. Filters must be in the boto3 format."""
 
-    filters.append({'Name': 'instance-state-name',
-                    'Values': ['running', 'stopped']})
-
-    client = boto3.client('ec2', region_name=region)
-    instances = client.describe_instances(Filters=filters)
-
-    res_list = instances.get('Reservations', [])
-    random.shuffle(res_list)  # attempt to randomize order, for timeouts
-
-    for reservation in res_list:
-        inst_list = reservation.get('Instances', [])
-        random.shuffle(inst_list)  # attempt to randomize order, for timeouts
-
-        for instance in inst_list:
-            if timeout_check(context, 'send_message_instances'):
-                break
-
-            if cli:
-                perform_snapshot(
-                    context,
-                    region,
-                    instance['InstanceId'],
-                    configuration_snapshot,
-                    instance_data=instance
-                )
-            else:
-                send_fanout_message(
-                    instance_id=instance['InstanceId'],
-                    region=region,
-                    topic_arn=sns_topic,
-                    snapshot_settings=configuration_snapshot,
-                    instance_data=instance)
-            sleep(8)  # API rate limiting help
-
-
-def send_fanout_message(instance_id, region, topic_arn, snapshot_settings, instance_data=None):
-    """Publish an SNS message to topic_arn that specifies an instance and region to review"""
-    data_hash = {'instance_id': instance_id,
-                 'region': region,
-                 'settings': snapshot_settings}
-
-    if instance_data:
-        data_hash['instance_data'] = sanitize_serializable(instance_data)
-
-    message = json.dumps(data_hash)
-
+    message = json.dumps({'region': region})
     LOG.debug('send_fanout_message: %s', message)
 
-    utils.sns_publish(TopicArn=topic_arn, Message=message)
+    if cli:
+        perform_snapshot(context, region)
+    else:
+        utils.sns_publish(TopicArn=sns_topic, Message=message)
 
 
-def perform_snapshot(context, region, instance, snapshot_settings, instance_data=None):
+def perform_snapshot(context, region, installed_region='us-east-1'):
     """Check the region and instance, and see if we should take any snapshots"""
-    LOG.info('Reviewing snapshots in region %s on instance %s', region, instance)
+    LOG.info('Reviewing snapshots in region %s', region)
 
-    # parse out snapshot settings
-    retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
+    # fetch these, in case we need to figure out what applies to an instance
+    configurations = dynamo.list_configurations(context, installed_region)
+    LOG.debug('Fetched all possible configuration rules from DynamoDB')
 
-    # grab the data about this instance id, if we don't already have it
-    if instance_data is None or 'BlockDeviceMappings' not in instance_data:
-        instance_data = utils.get_instance(instance, region)
+    # setup some lookup tables
+    cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
+    all_instances = cache_data['instance_id_to_data']
+    instance_configs = cache_data['instance_id_to_config']
+    volume_snap_recent = cache_data['volume_id_to_most_recent_snapshot_date']
 
-    ami_id = instance_data['ImageId']
-
-    for dev in instance_data.get('BlockDeviceMappings', []):
-        LOG.debug('Considering device %s', dev)
-        volume_id = dev['Ebs']['VolumeId']
-
-        # before we go pull tons of snapshots
+    for instance_id in set(all_instances.keys()):
+        # before we go do some work
         if timeout_check(context, 'perform_snapshot'):
             break
 
-        # find snapshots
-        recent = utils.most_recent_snapshot(volume_id, region)
-        now = datetime.datetime.now(dateutil.tz.tzutc())
+        snapshot_settings = instance_configs[instance_id]
 
-        # snapshot due?
-        if should_perform_snapshot(frequency, now, volume_id, recent):
-            LOG.debug('Performing snapshot for %s, calculating tags', volume_id)
-        else:
-            LOG.debug('NOT Performing snapshot for %s', volume_id)
-            continue
+        # parse out snapshot settings
+        retention, frequency = utils.parse_snapshot_settings(snapshot_settings)
 
-        # perform actual snapshot and create tag: retention + now() as a Y-M-D
-        delete_on_dt = now + retention
-        delete_on = delete_on_dt.strftime('%Y-%m-%d')
+        # grab the data about this instance id, if we don't already have it
+        instance_data = all_instances[instance_id]
 
-        # before we go make a bunch more API calls
-        if timeout_check(context, 'perform_snapshot'):
-            break
+        ami_id = instance_data['ImageId']
+        LOG.info('Reviewing snapshots in region %s on instance %s', region, instance_id)
 
-        volume_data = utils.get_volume(volume_id, region=region)
-        expected_tags = utils.calculate_relevant_tags(
-            instance_data.get('Tags', None),
-            volume_data.get('Tags', None))
+        for dev in instance_data.get('BlockDeviceMappings', []):
+            # before we go make a bunch more API calls
+            if timeout_check(context, 'perform_snapshot'):
+                break
 
-        utils.snapshot_and_tag(
-            instance,
-            ami_id,
-            volume_id,
-            delete_on,
-            region,
-            additional_tags=expected_tags)
+            LOG.debug('Considering device %s', dev)
+            volume_id = dev['Ebs']['VolumeId']
+
+            # find snapshots
+            recent = volume_snap_recent.get(volume_id)
+            now = datetime.datetime.now(dateutil.tz.tzutc())
+
+            # snapshot due?
+            if should_perform_snapshot(frequency, now, volume_id, recent):
+                LOG.debug('Performing snapshot for %s, calculating tags', volume_id)
+            else:
+                LOG.debug('NOT Performing snapshot for %s', volume_id)
+                continue
+
+            # perform actual snapshot and create tag: retention + now() as a Y-M-D
+            delete_on_dt = now + retention
+            delete_on = delete_on_dt.strftime('%Y-%m-%d')
+
+            volume_data = utils.get_volume(volume_id, region=region)
+            expected_tags = utils.calculate_relevant_tags(
+                instance_data.get('Tags', None),
+                volume_data.get('Tags', None))
+
+            utils.snapshot_and_tag(
+                instance_id,
+                ami_id,
+                volume_id,
+                delete_on,
+                region,
+                additional_tags=expected_tags)
 
 
 def should_perform_snapshot(frequency, now, volume_id, recent=None):
@@ -208,22 +140,22 @@ def should_perform_snapshot(frequency, now, volume_id, recent=None):
         LOG.debug('Next snapshot for volume %s should be due now', volume_id)
         return True
     else:
-        LOG.debug('Last snapshot for volume %s was at %s', volume_id, recent['StartTime'])
+        LOG.debug('Last snapshot for volume %s was at %s', volume_id, recent)
 
     if utils.is_timedelta_expression(frequency):
         LOG.debug('Next snapshot for volume %s should be due at %s',
                   volume_id,
-                  (recent['StartTime'] + frequency))
-        return (recent['StartTime'] + frequency) < now
+                  (recent + frequency))
+        return (recent + frequency) < now
 
     if utils.is_crontab_expression(frequency):
         # at recent['StartTime'], when should we have run next?
-        expected_next_seconds = frequency.next(recent['StartTime'], default_utc=True)
-        expected_next = recent['StartTime'] + timedelta(seconds=expected_next_seconds)
+        expected_next_seconds = frequency.next(recent, default_utc=True)
+        expected_next = recent + timedelta(seconds=expected_next_seconds)
 
         LOG.debug("Crontab expr:")
         LOG.debug("\tnow(): %s", now)
-        LOG.debug("\trecent['StartTime']: %s", recent['StartTime'])
+        LOG.debug("\trecent['StartTime']: %s", recent)
         LOG.debug("\texpected_next_seconds: %s", expected_next_seconds)
         LOG.debug("\texpected_next: %s", expected_next)
 

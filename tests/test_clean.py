@@ -48,7 +48,6 @@ def test_perform_fanout_all_regions_clean(mocker):
 
     # fan out, and be sure we touched every region
     clean.perform_fanout_all_regions(ctx)
-    print(clean.send_fanout_message.mock_calls)
     for r in expected_regions:
         clean.send_fanout_message.assert_any_call(  # pylint: disable=E1103
             ctx,
