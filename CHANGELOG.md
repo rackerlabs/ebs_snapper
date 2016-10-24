@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0
+
+Much of this work is related to #5.
+
+ - Switch to threading from multiprocess
+ - Pre-create API data in bulk
+ - Cut away the 'every DeleteOn tag' strategy
+ - Randomize order of snapshot and cleanup
+ - Make CLI perform full snapshot or cleanup
+ - Log when a snapshot is completed, improve duration check
+ - Reduce tag lookup calls, clean up, add more sleep
+
 ## 0.3.6
 
 - Check for runtime length in more places (#9)
