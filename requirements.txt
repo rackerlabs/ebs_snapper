@@ -1,6 +1,6 @@
-boto3==1.3.0
+boto==2.42.0
+boto3==1.4.0
 botocore==1.4.7
-logging==0.4.9.6
-pytimeparse==1.1.5
 crontab==0.21.3
-lambda-uploader==1.0.1
+lambda-uploader==1.0.3
+pytimeparse==1.1.5
