@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Freshen dependencies. No functional changes.
+
 ## 0.4.1
 
 - Bump to release latest HEAD as 0.4.1, no changes from v0.4.0.
