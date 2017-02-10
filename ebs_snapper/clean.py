@@ -68,6 +68,9 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
     configurations = dynamo.list_configurations(context, installed_region)
     LOG.debug('Fetched all possible configuration rules from DynamoDB')
 
+    # build a list of any IDs (anywhere) that we should ignore
+    ignore_ids = utils.build_ignore_list(configurations)
+
     # setup some lookup tables
     cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
     instance_configs = cache_data['instance_id_to_config']
@@ -113,6 +116,9 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
             # volume for snapshot
             snapshot_volume = snap['VolumeId']
             minimum_snaps = default_min_snaps
+
+            if snapshot_volume in ignore_ids:
+                continue
 
             # attempt to identify the instance this applies to, so we can check minimums
             try:
