@@ -73,6 +73,9 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
     configurations = dynamo.list_configurations(context, installed_region)
     LOG.debug('Fetched all possible configuration rules from DynamoDB')
 
+    # build a list of any IDs (anywhere) that we should ignore
+    ignore_ids = utils.build_ignore_list(configurations)
+
     # setup some lookup tables
     cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
     all_instances = cache_data['instance_id_to_data']
@@ -83,6 +86,9 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
         # before we go do some work
         if timeout_check(context, 'perform_snapshot'):
             break
+
+        if instance_id in ignore_ids:
+            continue
 
         snapshot_settings = instance_configs[instance_id]
 
@@ -100,8 +106,13 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
             if timeout_check(context, 'perform_snapshot'):
                 break
 
+            # we probably should have been using volume keys from one of the
+            # caches here, but since we're not, we're going to have to check here too
             LOG.debug('Considering device %s', dev)
             volume_id = dev['Ebs']['VolumeId']
+
+            if volume_id in ignore_ids:
+                continue
 
             # find snapshots
             recent = volume_snap_recent.get(volume_id)

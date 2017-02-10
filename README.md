@@ -85,7 +85,8 @@ lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .
     "retention": "4 days",
     "minimum": 5,
     "frequency": "12 hours"
-  }
+  },
+  "ignore": []
 }
 ```
 1. The CLI has a nice method for interacting with these configuration stanzas, but you must still provide them as JSON.

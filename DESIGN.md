@@ -27,6 +27,9 @@ Note: All instances will be filtered by whether they are running or stopped, usi
     - Frequency of snapshots (F hours, days, weeks, minimum is 1 hour) *or* a
     crontab expression [as described here](https://github.com/josiahcarlson/parse-crontab#description)
 
+  - Ignore section
+    - An array of instance or volume ids to ignore when doing snapshots or cleanups
+
 [1] http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Client.describe_instances
 
 Example of a JSON document from the DynamoDB table's `configuration` field (see [cloudformation template](cloudformation.json)):

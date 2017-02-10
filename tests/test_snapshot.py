@@ -235,3 +235,78 @@ def test_should_perform_snapshot():
         'volume-foo',
         recent=datetime.datetime(2016, 7, 24, 02, 35)  # 2016-07-24 at 2:35 UTC
         ) is False
+
+
+@mock_ec2
+@mock_dynamodb2
+@mock_sns
+@mock_iam
+@mock_sts
+def test_perform_snapshot_ignore_instance(mocker):
+    """Test for method of the same name."""
+    # some default settings for this test
+    region = 'us-west-2'
+
+    snapshot_settings = {
+        'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
+        'match': {'tag:backup': 'yes'},
+        'ignore': []
+    }
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+    snapshot_settings['ignore'].append(instance_id)
+
+    # need to filter instances, so need dynamodb present
+    mocks.create_dynamodb('us-east-1')
+    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
+
+    # patch the final method that takes a snapshot
+    mocker.patch('ebs_snapper.utils.snapshot_and_tag')
+
+    # since there are no snapshots, we should expect this to trigger one
+    ctx = utils.MockContext()
+    snapshot.perform_snapshot(ctx, region)
+
+    # test results
+    utils.snapshot_and_tag.assert_not_called()  # pylint: disable=E1103
+
+
+@mock_ec2
+@mock_dynamodb2
+@mock_sns
+@mock_iam
+@mock_sts
+def test_perform_snapshot_ignore_volume(mocker):
+    """Test for method of the same name."""
+    # some default settings for this test
+    region = 'us-west-2'
+
+    snapshot_settings = {
+        'snapshot': {'minimum': 5, 'frequency': '2 hours', 'retention': '5 days'},
+        'match': {'tag:backup': 'yes'},
+        'ignore': []
+    }
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+
+    # need to filter instances, so need dynamodb present
+    mocks.create_dynamodb('us-east-1')
+    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
+
+    # figure out the EBS volume that came with our instance
+    instance_details = utils.get_instance(instance_id, region)
+    block_devices = instance_details.get('BlockDeviceMappings', [])
+    volume_id = block_devices[0]['Ebs']['VolumeId']
+    snapshot_settings['ignore'].append(volume_id)
+
+    # patch the final method that takes a snapshot
+    mocker.patch('ebs_snapper.utils.snapshot_and_tag')
+
+    # since there are no snapshots, we should expect this to trigger one
+    ctx = utils.MockContext()
+    snapshot.perform_snapshot(ctx, region)
+
+    # test results
+    utils.snapshot_and_tag.assert_not_called()  # pylint: disable=E1103

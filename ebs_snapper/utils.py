@@ -32,8 +32,8 @@ import functools
 from time import sleep
 import dateutil
 import boto3
-from pytimeparse.timeparse import timeparse
 from crontab import CronTab
+from pytimeparse.timeparse import timeparse
 import ebs_snapper
 
 LOG = logging.getLogger()
@@ -111,6 +111,20 @@ def get_owner_id(context, region=None):
         owners.extend([x['OwnerId'] for x in instances['Reservations']])
 
     return list(set(owners))
+
+
+def build_ignore_list(configurations):
+    """Given a bunch of configs, build a list of ids to ignore"""
+    ignore_ids = []
+    for config in configurations:
+        # if it's missing the match section, ignore it
+        if not validate_snapshot_settings(config):
+            continue
+
+        ignored = config.get('ignore', [])
+        ignore_ids.extend(ignored)
+
+    return ignore_ids
 
 
 def get_regions(must_contain_instances=False):
@@ -510,6 +524,10 @@ def build_cache_maps(context, configurations, region, installed_region):
     # populate them
     LOG.info("Retrieved %s DynamoDB configurations for caching",
              str(len(configurations)))
+
+    # build a list of any IDs (anywhere) that we should ignore
+    ignore_ids = build_ignore_list(configurations)
+
     for config in configurations:
         # stop if we're running out of time
         if ebs_snapper.timeout_check(context, 'build_cache_maps'):
@@ -542,10 +560,19 @@ def build_cache_maps(context, configurations, region, installed_region):
             for instance_data in inst_list:
                 instance_id = instance_data['InstanceId']
 
+                # skip if we're ignoring this
+                if instance_id in ignore_ids:
+                    continue
+
                 cache_data['instance_id_to_config'][instance_id] = config
                 cache_data['instance_id_to_data'][instance_id] = instance_data
                 for dev in instance_data.get('BlockDeviceMappings', []):
                     vid = dev['Ebs']['VolumeId']
+
+                    # skip if we're ignoring this
+                    if vid in ignore_ids:
+                        continue
+
                     cache_data['volume_id_to_instance_id'][vid] = instance_id
 
     LOG.info("Retrieved %s instances for caching",
