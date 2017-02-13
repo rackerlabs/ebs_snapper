@@ -93,6 +93,9 @@ def store_configuration(installed_region, object_id, aws_account_id, configurati
     dynamodb = boto3.resource('dynamodb', region_name=installed_region)
     table = dynamodb.Table('ebs_snapshot_configuration')
 
+    # be sure they parse correctly before we go saving them
+    utils.parse_snapshot_settings(configuration)
+
     response = table.put_item(
         Item={
             'aws_account_id': aws_account_id,

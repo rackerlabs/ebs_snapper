@@ -197,8 +197,13 @@ def parse_snapshot_settings(snapshot_settings):
         if k not in snapshot_settings['snapshot']:
             raise Exception('missing required snapshot setting {}'.format(k))
 
-    retention_seconds = timeparse(snapshot_settings['snapshot']['retention'])
-    retention = timedelta(seconds=retention_seconds)
+    ret_s = snapshot_settings['snapshot']['retention']
+    retention = timeparse('7 days')
+    try:
+        retention_seconds = timeparse(ret_s)
+        retention = timedelta(seconds=retention_seconds)
+    except:
+        raise Exception('Could not parse snapshot retention value', ret_s)
 
     f_expr = snapshot_settings['snapshot']['frequency']
     if is_timedelta_expression(f_expr):
