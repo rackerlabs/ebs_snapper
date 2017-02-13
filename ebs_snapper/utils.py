@@ -127,6 +127,15 @@ def build_ignore_list(configurations):
     return ignore_ids
 
 
+def ignore_retention_enabled(configurations):
+    """Given a bunch of configs, check for special 'ignore retention' flag"""
+    for config in configurations:
+        ignored = config.get('ignore_retention', False)
+        return bool(ignored)
+
+    return False
+
+
 def get_regions(must_contain_instances=False):
     """Get regions, optionally filtering by regions containing instances."""
     LOG.debug('get_regions(must_contain_instances=%s)', must_contain_instances)

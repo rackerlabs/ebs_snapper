@@ -9,6 +9,10 @@ This project is provided under the Apache License, version 2. Pull requests and 
 - [Testing](TESTING.md)
 - [LICENSE](LICENSE.md)
 
+## Important note
+
+We designed this software as a stopgap for services that aren't storing data in a cloudy, [12 factor way](https://12factor.net/processes): "Twelve-factor processes are stateless and share-nothing. Any data that needs to persist must be stored in a stateful backing service, typically a database." If you're considering implementing this tool in a large environment, it may not work as expected, due to limitations with API rate limiting, snapshot count limits, the settings we provide, etc. We strongly encourage this tool to be used only as a stopgap while an application can be re-written to use S3 and RDS and other durable, AWS-recommended storage mechanisms.
+
 ## Releases
 
 [Latest](https://s3.amazonaws.com/production-ebs-snapper/latest/ebs_snapper.zip)

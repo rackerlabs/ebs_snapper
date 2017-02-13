@@ -71,11 +71,22 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
     # build a list of any IDs (anywhere) that we should ignore
     ignore_ids = utils.build_ignore_list(configurations)
 
+    # figure out if we're in an account-wide mode where we ignore retention and
+    # destroy all snapshots with a delete_on value that we want to delete
+    ignore_retention_enabled = utils.ignore_retention_enabled(configurations)
+
     # setup some lookup tables
-    cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
-    instance_configs = cache_data['instance_id_to_config']
-    all_volumes = cache_data['volume_id_to_instance_id']
-    volume_snap_count = cache_data['volume_id_to_snapshot_count']
+    if ignore_retention_enabled:
+        LOG.warn('Here be dragons -- ignore retention flag has been enabled')
+        cache_data = None
+        instance_configs = None
+        all_volumes = None
+        volume_snap_count = None
+    else:
+        cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
+        instance_configs = cache_data['instance_id_to_config']
+        all_volumes = cache_data['volume_id_to_instance_id']
+        volume_snap_count = cache_data['volume_id_to_snapshot_count']
 
     # figure out what dates we want to nuke
     today = datetime.date.today()
@@ -120,45 +131,49 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
             if snapshot_volume in ignore_ids:
                 continue
 
-            # attempt to identify the instance this applies to, so we can check minimums
-            try:
-                # given volume id, get the instance for it
-                volume_instance = all_volumes.get(snapshot_volume, None)
+            if not ignore_retention_enabled:
+                # attempt to identify the instance this applies to, so we can check minimums
+                try:
+                    # given volume id, get the instance for it
+                    volume_instance = all_volumes.get(snapshot_volume, None)
 
-                # minimum required
-                if volume_instance is not None:
-                    snapshot_settings = instance_configs.get(volume_instance, None)
-                    if snapshot_settings is not None:
-                        minimum_snaps = snapshot_settings['snapshot']['minimum']
+                    # minimum required
+                    if volume_instance is not None:
+                        snapshot_settings = instance_configs.get(volume_instance, None)
+                        if snapshot_settings is not None:
+                            minimum_snaps = snapshot_settings['snapshot']['minimum']
 
-                # current number of snapshots
-                if snapshot_volume in volume_snap_count:
-                    no_snaps = volume_snap_count[snapshot_volume]
-                else:
-                    no_snaps = 0
+                    # current number of snapshots
+                    if snapshot_volume in volume_snap_count:
+                        no_snaps = volume_snap_count[snapshot_volume]
+                    else:
+                        no_snaps = 0
 
-                # if we have less than the minimum, don't delete this one
-                if no_snaps <= minimum_snaps:
-                    LOG.warn('Not deleting snapshot %s from %s (%s)',
-                             snap['SnapshotId'], region, delete_on)
-                    LOG.warn('Only %s snapshots exist, below minimum of %s',
-                             no_snaps, minimum_snaps)
+                    # if we have less than the minimum, don't delete this one
+                    if no_snaps <= minimum_snaps:
+                        LOG.warn('Not deleting snapshot %s from %s (%s)',
+                                 snap['SnapshotId'], region, delete_on)
+                        LOG.warn('Only %s snapshots exist, below minimum of %s',
+                                 no_snaps, minimum_snaps)
+                        continue
+
+                except:
+                    # if we couldn't figure out a minimum of snapshots,
+                    # don't clean this up -- these could be orphaned snapshots
+                    LOG.warn('Error analyzing snapshot %s from %s, skipping... (%s)',
+                             snap['SnapshotId'],
+                             region,
+                             delete_on)
                     continue
 
-            except:
-                # if we couldn't figure out a minimum of snapshots,
-                # don't clean this up -- these could be orphaned snapshots
-                LOG.warn('Error analyzing snapshot %s from %s, skipping... (%s)',
-                         snap['SnapshotId'],
-                         region,
-                         delete_on)
-                continue
+            log_snapcount = volume_snap_count.get(snapshot_volume, 'unknown') \
+                if volume_snap_count else None
 
             LOG.warn('Deleting snapshot %s from %s (%s, count=%s > %s)',
                      snap['SnapshotId'],
                      region,
                      delete_on,
-                     volume_snap_count.get(snapshot_volume, 'unknown'),
+                     log_snapcount,
                      minimum_snaps)
             deleted_count += utils.delete_snapshot(snap['SnapshotId'], region)
 

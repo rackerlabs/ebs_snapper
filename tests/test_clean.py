@@ -126,6 +126,47 @@ def test_clean_tagged_snapshots(mocker):
 @mock_dynamodb2
 @mock_iam
 @mock_sts
+def test_clean_tagged_snapshots_ignore_retention(mocker):
+    """Test for method of the same name."""
+    # default settings
+    region = 'us-east-1'
+    mocks.create_dynamodb(region)
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+    ctx = utils.MockContext()
+
+    # setup the min # snaps for the instance
+    config_data = {
+        "match": {"instance-id": instance_id},
+        "snapshot": {
+            "retention": "6 days", "minimum": 5, "frequency": "13 hours"
+        },
+        "ignore_retention": True
+    }
+
+    # put it in the table, be sure it succeeded
+    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+
+    # figure out the EBS volume that came with our instance
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
+
+    # make a snapshot that should be deleted today (but 5 snap retention)
+    now = datetime.datetime.now(dateutil.tz.tzutc())
+    delete_on = now.strftime('%Y-%m-%d')
+    utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
+    snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
+
+    mocker.patch('ebs_snapper.utils.delete_snapshot')
+    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    clean.clean_snapshot(ctx, region)
+    utils.delete_snapshot.assert_any_call(snapshot_id, region)  # pylint: disable=E1103
+
+
+@mock_ec2
+@mock_dynamodb2
+@mock_iam
+@mock_sts
 def test_clean_snapshots_tagged_timeout(mocker):
     """Test that we _DONT_ clean anything if runtime > 4 minutes"""
     # default settings
