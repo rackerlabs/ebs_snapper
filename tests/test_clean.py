@@ -23,6 +23,7 @@
 
 import json
 import datetime
+import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_iam, mock_sts
 from ebs_snapper import clean, utils, mocks, dynamo
 import dateutil
@@ -132,8 +133,9 @@ def test_clean_tagged_snapshots_ignore_retention(mocker):
     region = 'us-east-1'
     mocks.create_dynamodb(region)
 
-    # create an instance and record the id
-    instance_id = mocks.create_instances(region, count=1)[0]
+    # create two instances and record the id of one of them
+    instance_id_list = mocks.create_instances(region, count=2)
+    instance_id = instance_id_list[0]
     ctx = utils.MockContext()
 
     # setup the min # snaps for the instance
@@ -156,6 +158,10 @@ def test_clean_tagged_snapshots_ignore_retention(mocker):
     delete_on = now.strftime('%Y-%m-%d')
     utils.snapshot_and_tag(instance_id, 'ami-123abc', volume_id, delete_on, region)
     snapshot_id = utils.most_recent_snapshot(volume_id, region)['SnapshotId']
+
+    # now delete the instance and volume, keep the snapshot
+    client = boto3.client('ec2', region_name=region)
+    client.terminate_instances(InstanceIds=[instance_id])
 
     mocker.patch('ebs_snapper.utils.delete_snapshot')
     dynamo.store_configuration(region, 'foo', '111122223333', config_data)
