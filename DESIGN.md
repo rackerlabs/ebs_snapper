@@ -31,7 +31,7 @@ Note: All instances will be filtered by whether they are running or stopped, usi
     - An array of instance or volume ids to ignore when doing snapshots or cleanups
 
   - ignore_retention flag
-    - a JSON boolean value, if enabled, causes EBS Snapper to ignore any snapshot retention settings (minimum number of snapshots present), and delete all snapshots with an appropriate `DeleteOn` tag
+    - a JSON boolean value, if enabled, causes EBS Snapper to ignore snapshot retention settings when it can't calculate the minimum number of snapshots present, and delete a snapshots with an appropriate `DeleteOn` tag regardless
 
 [1] http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Client.describe_instances
 
