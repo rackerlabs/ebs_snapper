@@ -30,6 +30,9 @@ Note: All instances will be filtered by whether they are running or stopped, usi
   - Ignore section
     - An array of instance or volume ids to ignore when doing snapshots or cleanups
 
+  - ignore_retention flag
+    - a JSON boolean value, if enabled, causes EBS Snapper to ignore any snapshot retention settings (minimum number of snapshots present), and delete all snapshots with an appropriate `DeleteOn` tag
+
 [1] http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Client.describe_instances
 
 Example of a JSON document from the DynamoDB table's `configuration` field (see [cloudformation template](cloudformation.json)):
@@ -91,7 +94,7 @@ For the input region, loop through every configuration stanze, and search for EC
 
 ### Clean up algorithm - 'ebs_snapper_clean'
 
-For the input region, loop through every snapshot (ec2-describe-snapshots) with a retention tag. If the current time is after the retention value, and there are a minimum number of snapshots present, delete the snapshot. This job will run on SNS trigger from the 'clean' fanout job.
+For the input region, loop through every snapshot (ec2-describe-snapshots) with a retention tag. If the current time is after the retention value, and there are a minimum number of snapshots present, (or if the ignore_retention flag is set), delete the snapshot. This job will run on SNS trigger from the 'clean' fanout job.
 
 ## Python modules, project organization
 
