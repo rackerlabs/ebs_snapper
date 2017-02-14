@@ -24,7 +24,7 @@
 import logging
 
 __title__ = 'ebs_snapper'
-__version__ = '0.4.2'
+__version__ = '0.5.0'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright Rackspace US, Inc. 2015-2016'
 __url__ = 'https://github.com/rackerlabs/ebs-snapper-lambda-v2'

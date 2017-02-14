@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Add option to ignore retention settings, when necessary (#14)
+- Test parse configs before saving (#18)
+- Add support for ignoring certain volumes (#16)
+
 ## 0.4.2
 
 - Freshen dependencies. No functional changes.
