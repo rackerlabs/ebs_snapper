@@ -36,7 +36,7 @@ pip install -e .
 
 ## Installing the ebs-snapper into an AWS Account
 
-ebs-snapper makes use of the same enviornment variables of AWS CLI to establish a connection to your AWS account. You'll want to have `AWS_ACCESS_KEY_ID` and your `AWS_SECRET_ACCESS_KEY` environment variables set for the appropriate account you'd like to install this software into, and then use the `deploy` command (I highly recommend using `-V` on this command) -- example run, hiding boto output (if you grabbed the zip earlier, you'll also need cloudformation.json and lamba.json from the repository):
+ebs-snapper makes use of the same environment variables of AWS CLI to establish a connection to your AWS account. You'll want to have `AWS_ACCESS_KEY_ID` and your `AWS_SECRET_ACCESS_KEY` environment variables set for the appropriate account you'd like to install this software into, and then use the `deploy` command (I highly recommend using `-V` on this command) -- example run, hiding boto output (if you grabbed the zip earlier, you'll also need cloudformation.json and lamba.json from the repository):
 ```
 $ ebs-snapper -V deploy --no_build 2>&1 | grep -v botocore
 INFO:ebs_snapper.deploy:Building package using lambda-uploader
