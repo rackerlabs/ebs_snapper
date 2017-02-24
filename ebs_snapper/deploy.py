@@ -86,8 +86,7 @@ def deploy(context, aws_account_id=None, no_build=None, no_upload=None, no_stack
     # freshen up lambda jobs themselves
     if not no_upload:
         update_function_and_version(ebs_bucket_name, lambda_zip_filename)
-
-    ensure_cloudwatch_logs_retention(aws_account)
+        ensure_cloudwatch_logs_retention(aws_account)
 
 
 def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
