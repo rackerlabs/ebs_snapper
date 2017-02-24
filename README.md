@@ -27,9 +27,9 @@ NOTE: We recommend [downloading a release from S3](http://s3.amazonaws.com/produ
 
 Since this package is not currently in PyPi, it will need to be installed locally: git clone the repo (choose a tag, please!) to your workstation then run these commands from inside the repo's main directory:
 ```
-git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.2.0
+git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.5.0
 cd ebs_snapper
-wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.2.0/ebs_snapper.zip
+wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.5.0/ebs_snapper.zip
 pip install -r requirements.txt
 pip install -e .
 ```
@@ -48,39 +48,41 @@ INFO:lambda_uploader.utils:Copying source files
 INFO:lambda_uploader.package:Copying extra ebs_snapper/lambdas.py into package
 INFO:lambda_uploader.utils:Copying source files
 INFO:lambda_uploader.package:Creating zipfile
-INFO:ebs_snapper.deploy:Creating S3 bucket ebs-snapper-386913580367 if it doesn't exist
+INFO:ebs_snapper.deploy:Creating S3 bucket ebs-snapper-112233445566 if it doesn't exist
 INFO:ebs_snapper.deploy:Uploading files into S3 bucket
-INFO:ebs_snapper.deploy:Uploading cloudformation.json to bucket ebs-snapper-386913580367
-INFO:ebs_snapper.deploy:Uploading ebs_snapper.zip to bucket ebs-snapper-386913580367
-INFO:ebs_snapper.deploy:EBS Snapper functions found: [u'ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY', u'ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI', u'ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD', u'ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4']
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 200, 'RequestId': 'd46a67f6-3e14-11e6-a7ba-1922d5da6516'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 201, 'RequestId': 'd56828ee-3e14-11e6-a4be-69a6ba3bb259'}
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 200, 'RequestId': 'd5776b92-3e14-11e6-a79c-b19da9b3c864'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 201, 'RequestId': 'd6c93fb8-3e14-11e6-86c1-c74f9df99951'}
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 200, 'RequestId': 'd6d881e6-3e14-11e6-a932-f9545c2ef676'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 201, 'RequestId': 'd7b9e0da-3e14-11e6-8fa4-e3e2a6dc773a'}
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 200, 'RequestId': 'd7ca5b9a-3e14-11e6-8c61-c967675510cf'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 201, 'RequestId': 'd915c7f2-3e14-11e6-9bdf-896152a8ec90'}
+INFO:ebs_snapper.deploy:Uploading cloudformation.json to bucket ebs-snapper-112233445566
+INFO:ebs_snapper.deploy:Uploading ebs_snapper.zip to bucket ebs-snapper-112233445566
+INFO:ebs_snapper.deploy:EBS Snapper functions found: [u'ebs-snapper-112233445566-CleanSnapshotFunction-1QJV0HZG6VRAY', u'ebs-snapper-112233445566-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI', u'ebs-snapper-112233445566-FanoutCreateSnapshotFunct-10FU91BLXVZAD', u'ebs-snapper-112233445566-CreateSnapshotFunction-1NE7UCGPK6IS4']
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 200, 'RequestId': 'd46a67f6-3e14-11e6-a7ba-1922d5da6516'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 201, 'RequestId': 'd56828ee-3e14-11e6-a4be-69a6ba3bb259'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 200, 'RequestId': 'd5776b92-3e14-11e6-a79c-b19da9b3c864'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 201, 'RequestId': 'd6c93fb8-3e14-11e6-86c1-c74f9df99951'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 200, 'RequestId': 'd6d881e6-3e14-11e6-a932-f9545c2ef676'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 201, 'RequestId': 'd7b9e0da-3e14-11e6-8fa4-e3e2a6dc773a'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 200, 'RequestId': 'd7ca5b9a-3e14-11e6-8c61-c967675510cf'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 201, 'RequestId': 'd915c7f2-3e14-11e6-9bdf-896152a8ec90'}
 INFO:ebs_snapper.shell:Function shell_deploy completed
 ```
 
-The first time you run deploy, this will only create the stack in CloudFormation. After the first time, run this again to publish new versions of the tool to an account, as new versions are released.
+The first time you run deploy, this will only create the stack in CloudFormation. After the first time, run this again to publish new versions of the tool to an account, as new versions are released. Please see the section below on the `configure` subcommand of the CLI to learn more about configuring this software after installation.
 
-If you need to manually install this software, you may follow these steps:
+## How to use the CLI
 
-1. Create an S3 bucket in "US General" / "us-east-1" and name it `ebs-snapper-<AWS_ACCOUNT_ID>`
-1. Run lambda-uploader to build an ebs_snapper.zip file:
-```
-lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .
-```
-1. Upload `cloudformation.json` and `ebs_snapper.zip` to the S3 bucket you created.
-1. Create a stack using the [CloudFormation template](cloudformation.json)
-1. Publish new versions of the four lambda functions from the template in the previous step. Make sure the description contains only the version of `ebs-snapper` that was uploaded.
+The `ebs-snapper` commandline tool has three subcommands: `snapshot, clean, configure`. For `snapshot` and `clean`, the tool will take any needed snapshots, or clean up any eligible snapshots, respectively, based on the configuration items stored for the AWS account. `configure` is a way for you to interact with the chunks of JSON configuration used by the tool, and has flags for get (`-g / --get`), set (`-s / --set`), delete (`-d / --del`), or list (`-l / --list`). To speed up the configuration subcommand, you can always supply an AWS account ID so that we don't have scan for it, based on EC2 instances and their owners), using (`-a <account id>`).
+
+Additionally, you may be interested in raising the log level of output using `-V` or `-VV`, e.g.: `ebs-snapper -V <rest of command>`. The logging output generally prints AWS connections established to a specific region, as well as parsing and logic information that could be used to debug or look deeper into the tool's behavior.
 
 
-## Configuring this software
-1. Configuration stanzas live in DynamoDB, and use a compound key `id, aws_account_id`. `id` is a completely arbitrary identifier for each configuration element; `aws_account_id` is the numerical account id that owns EC2 instances in this account.
-1. Each compound key `(id, aws_account_id)` in the previous step also owns a configuration stanza made of JSON. The stanza itself is described by the [DESIGN.md](/DESIGN.md) documentation in this repository. Here is an example of one valid configuration (backup everything with a tag named backup that has a value of 'yes'):
+In the commands below, we enable verbose logging but strip out the boto logging:
+
+
+### Configure subcommands
+
+**IMPORTANT NOTE** By default, no configurations are created for you. By default, ebs_snapper will do nothing. The meaning of every configuration item is described in [DESIGN.md](/DESIGN.md), also in this repository.
+
+#### Background
+
+JSON configuration stanzas live in DynamoDB, and use a compound key `id, aws_account_id`. `id` is a completely arbitrary identifier for each configuration element; `aws_account_id` is the numerical account id that owns EC2 instances in this account. Here is an example of one valid configuration (backup everything with a tag named backup that has a value of 'yes'):
 
 ```
 {
@@ -93,16 +95,48 @@ lambda-uploader --no-upload -r requirements.txt -x ebs_snapper/lambdas.py .
   "ignore": []
 }
 ```
-1. The CLI has a nice method for interacting with these configuration stanzas, but you must still provide them as JSON.
 
-## How to use the CLI
+#### Examples
 
-The `ebs-snapper` commandline tool has three subcommands: `snapshot, clean, configure`. For `snapshot` and `clean`, the tool will take any needed snapshots, or clean up any eligible snapshots, respectively, based on the configuration items stored for the AWS account. `configure` is a way for you to interact with the chunks of JSON configuration used by the tool, and has flags for get (`-g / --get`), set (`-s / --set`), delete (`-d / --del`), or list (`-l / --list`). To speed up the configuration subcommand, you can always supply an AWS account ID so that we don't have scan for it, based on EC2 instances and their owners), using (`-a <account id>`).
+List existing configurations stored for this account (will also output the aws_account_id):
 
-Additionally, you may be interested in raising the log level of output using `-V` or `-VV`, e.g.: `ebs-snapper -V <rest of command>`. The logging output generally prints AWS connections established to a specific region, as well as parsing and logic information that could be used to debug or look deeper into the tool's behavior.
+```
+$ ebs-snapper configure -l
+aws_account_id,id
+112233445566,tagged_instances
+```
 
+Get the extant configuration:
 
-In the commands below, we enable verbose logging but strip out the boto logging:
+```
+$ ebs-snapper configure -g tagged_instances
+{"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}
+```
+
+Or to make it a bit faster, get the config passing an aws_account_id:
+```
+$ ebs-snapper configure -g -a 112233445566 tagged_instances
+{"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}
+```
+
+Now, let's add a second one:
+```
+$ ebs-snapper configure -s -a 112233445566 daily_tagged '{"snapshot": {"minimum": 5, "frequency": "1 day", "retention": "5 days"}, "match": {"tag:backup": "daily"}}'
+Saved to key daily_tagged under account 112233445566
+$ ebs-snapper configure -l
+aws_account_id,id
+112233445566,tagged_instances
+112233445566,daily_tagged
+```
+
+And finally, let's delete the new one, and list again:
+```
+$ ebs-snapper configure -d -a 112233445566 daily_tagged
+{}
+$ ebs-snapper configure -l -a 112233445566
+aws_account_id,id
+112233445566,tagged_instances
+```
 
 ### Snapshot command
 ```
@@ -122,47 +156,3 @@ Function shell_clean completed
 ```
 
 As you can see, the `clean` subcommand does something similar to the snapshot one. It identifies all regions with currently running instances, and then dispatches a lambda job to scan that region for snapshots that might be able to be deleted. The actual work of determining what to delete and performing the delete API calls happens in the other lambda job.
-
-### Configure subcommands
-
-**NOTE** By default, no configurations are created for you. By default, ebs_snapper will do nothing.
-
-List existing configurations stored for this account (will also output the aws_account_id):
-
-```
-$ ebs-snapper configure -l
-aws_account_id,id
-386913580367,tagged_instances
-```
-
-Get the extant configuration:
-
-```
-$ ebs-snapper configure -g tagged_instances
-{"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}
-```
-
-Or to make it a bit faster, get the config passing an aws_account_id:
-```
-$ ebs-snapper configure -g -a 386913580367 tagged_instances
-{"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}
-```
-
-Now, let's add a second one:
-```
-$ ebs-snapper configure -s -a 386913580367 daily_tagged '{"snapshot": {"minimum": 5, "frequency": "1 day", "retention": "5 days"}, "match": {"tag:backup": "daily"}}'
-Saved to key daily_tagged under account 386913580367
-$ ebs-snapper configure -l
-aws_account_id,id
-386913580367,tagged_instances
-386913580367,daily_tagged
-```
-
-And finally, let's delete the new one, and list again:
-```
-$ ebs-snapper configure -d -a 386913580367 daily_tagged
-{}
-$ ebs-snapper configure -l -a 386913580367
-aws_account_id,id
-386913580367,tagged_instances
-```
