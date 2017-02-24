@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Ensure our log groups have default retention settings (#25)
+- Documentation and metadata updates (#24)
+
 ## 0.5.0
 
 - Add option to ignore retention settings, when necessary (#14)
