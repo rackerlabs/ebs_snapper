@@ -87,6 +87,8 @@ def deploy(context, aws_account_id=None, no_build=None, no_upload=None, no_stack
     if not no_upload:
         update_function_and_version(ebs_bucket_name, lambda_zip_filename)
 
+    ensure_cloudwatch_logs_retention(aws_account)
+
 
 def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
     """Ensure the S3 bucket exists, then upload CF and Lambda files"""
@@ -222,6 +224,24 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
 
     # wait for stack to settle to a completed status
     wait_for_completion(cf_client, stack_name)
+
+
+def ensure_cloudwatch_logs_retention(aws_account):
+    """Be sure retention values are set on CloudWatch Logs for this tool"""
+    cwlogs_client = boto3.client('logs', region_name=DEFAULT_REGION)
+    loggroup_prefix = '/aws/lambda/ebs-snapper-{}-'.format(str(aws_account))
+
+    list_groups = cwlogs_client.describe_log_groups(logGroupNamePrefix=loggroup_prefix)
+    for group in list_groups.get('logGroups', []):
+        if group.get('retentionInDays', None):
+            LOG.info('Skipping log group %s, as retention is already set', group['logGroupName'])
+            continue
+
+        LOG.info('Configuring retention policy on %s log group', group['logGroupName'])
+        cwlogs_client.put_retention_policy(
+            logGroupName=group['logGroupName'],
+            retentionInDays=14
+        )
 
 
 def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
