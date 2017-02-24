@@ -6,8 +6,9 @@ from setuptools import setup
 
 setup(
     name='ebs_snapper',
-    version='0.1.0',
-    description='Project for EC2 volume backups using EBS snapshots',
+    description='Collection of AWS Lambda functions create, manage, and delete EBS snapshots',
+    keywords='aws lambda ebs ec2 snapshot backup',
+    version='0.5.0',
     author='Rackspace',
     author_email='fps@rackspace.com',
     url='https://github.com/rackerlabs/ebs_snapper',
