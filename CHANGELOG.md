@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Be sure we only touch retention when touching functions (#27)
+
 ## 0.6.0
 
 - Ensure our log groups have default retention settings (#25)

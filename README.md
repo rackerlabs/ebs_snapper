@@ -27,9 +27,9 @@ NOTE: We recommend [downloading a release from S3](http://s3.amazonaws.com/produ
 
 Since this package is not currently in PyPi, it will need to be installed locally: git clone the repo (choose a tag, please!) to your workstation then run these commands from inside the repo's main directory:
 ```
-git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.6.0
+git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.6.1
 cd ebs_snapper
-wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.6.0/ebs_snapper.zip
+wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.6.1/ebs_snapper.zip
 pip install -r requirements.txt
 pip install -e .
 ```
