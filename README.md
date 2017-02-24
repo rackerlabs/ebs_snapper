@@ -48,19 +48,19 @@ INFO:lambda_uploader.utils:Copying source files
 INFO:lambda_uploader.package:Copying extra ebs_snapper/lambdas.py into package
 INFO:lambda_uploader.utils:Copying source files
 INFO:lambda_uploader.package:Creating zipfile
-INFO:ebs_snapper.deploy:Creating S3 bucket ebs-snapper-386913580367 if it doesn't exist
+INFO:ebs_snapper.deploy:Creating S3 bucket ebs-snapper-112233445566 if it doesn't exist
 INFO:ebs_snapper.deploy:Uploading files into S3 bucket
-INFO:ebs_snapper.deploy:Uploading cloudformation.json to bucket ebs-snapper-386913580367
-INFO:ebs_snapper.deploy:Uploading ebs_snapper.zip to bucket ebs-snapper-386913580367
-INFO:ebs_snapper.deploy:EBS Snapper functions found: [u'ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY', u'ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI', u'ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD', u'ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4']
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 200, 'RequestId': 'd46a67f6-3e14-11e6-a7ba-1922d5da6516'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 201, 'RequestId': 'd56828ee-3e14-11e6-a4be-69a6ba3bb259'}
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 200, 'RequestId': 'd5776b92-3e14-11e6-a79c-b19da9b3c864'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 201, 'RequestId': 'd6c93fb8-3e14-11e6-86c1-c74f9df99951'}
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 200, 'RequestId': 'd6d881e6-3e14-11e6-a932-f9545c2ef676'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 201, 'RequestId': 'd7b9e0da-3e14-11e6-8fa4-e3e2a6dc773a'}
-INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 200, 'RequestId': 'd7ca5b9a-3e14-11e6-8c61-c967675510cf'}
-INFO:ebs_snapper.deploy:Published new version for ebs-snapper-386913580367-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 201, 'RequestId': 'd915c7f2-3e14-11e6-9bdf-896152a8ec90'}
+INFO:ebs_snapper.deploy:Uploading cloudformation.json to bucket ebs-snapper-112233445566
+INFO:ebs_snapper.deploy:Uploading ebs_snapper.zip to bucket ebs-snapper-112233445566
+INFO:ebs_snapper.deploy:EBS Snapper functions found: [u'ebs-snapper-112233445566-CleanSnapshotFunction-1QJV0HZG6VRAY', u'ebs-snapper-112233445566-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI', u'ebs-snapper-112233445566-FanoutCreateSnapshotFunct-10FU91BLXVZAD', u'ebs-snapper-112233445566-CreateSnapshotFunction-1NE7UCGPK6IS4']
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 200, 'RequestId': 'd46a67f6-3e14-11e6-a7ba-1922d5da6516'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-CleanSnapshotFunction-1QJV0HZG6VRAY: {'HTTPStatusCode': 201, 'RequestId': 'd56828ee-3e14-11e6-a4be-69a6ba3bb259'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 200, 'RequestId': 'd5776b92-3e14-11e6-a79c-b19da9b3c864'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-FanoutCleanSnapshotFuncti-1A765ZU6QD0AI: {'HTTPStatusCode': 201, 'RequestId': 'd6c93fb8-3e14-11e6-86c1-c74f9df99951'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 200, 'RequestId': 'd6d881e6-3e14-11e6-a932-f9545c2ef676'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-FanoutCreateSnapshotFunct-10FU91BLXVZAD: {'HTTPStatusCode': 201, 'RequestId': 'd7b9e0da-3e14-11e6-8fa4-e3e2a6dc773a'}
+INFO:ebs_snapper.deploy:Updated function code for ebs-snapper-112233445566-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 200, 'RequestId': 'd7ca5b9a-3e14-11e6-8c61-c967675510cf'}
+INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-CreateSnapshotFunction-1NE7UCGPK6IS4: {'HTTPStatusCode': 201, 'RequestId': 'd915c7f2-3e14-11e6-9bdf-896152a8ec90'}
 INFO:ebs_snapper.shell:Function shell_deploy completed
 ```
 
@@ -132,7 +132,7 @@ List existing configurations stored for this account (will also output the aws_a
 ```
 $ ebs-snapper configure -l
 aws_account_id,id
-386913580367,tagged_instances
+112233445566,tagged_instances
 ```
 
 Get the extant configuration:
@@ -144,25 +144,25 @@ $ ebs-snapper configure -g tagged_instances
 
 Or to make it a bit faster, get the config passing an aws_account_id:
 ```
-$ ebs-snapper configure -g -a 386913580367 tagged_instances
+$ ebs-snapper configure -g -a 112233445566 tagged_instances
 {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}
 ```
 
 Now, let's add a second one:
 ```
-$ ebs-snapper configure -s -a 386913580367 daily_tagged '{"snapshot": {"minimum": 5, "frequency": "1 day", "retention": "5 days"}, "match": {"tag:backup": "daily"}}'
-Saved to key daily_tagged under account 386913580367
+$ ebs-snapper configure -s -a 112233445566 daily_tagged '{"snapshot": {"minimum": 5, "frequency": "1 day", "retention": "5 days"}, "match": {"tag:backup": "daily"}}'
+Saved to key daily_tagged under account 112233445566
 $ ebs-snapper configure -l
 aws_account_id,id
-386913580367,tagged_instances
-386913580367,daily_tagged
+112233445566,tagged_instances
+112233445566,daily_tagged
 ```
 
 And finally, let's delete the new one, and list again:
 ```
-$ ebs-snapper configure -d -a 386913580367 daily_tagged
+$ ebs-snapper configure -d -a 112233445566 daily_tagged
 {}
-$ ebs-snapper configure -l -a 386913580367
+$ ebs-snapper configure -l -a 112233445566
 aws_account_id,id
-386913580367,tagged_instances
+112233445566,tagged_instances
 ```
