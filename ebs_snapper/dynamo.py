@@ -26,6 +26,7 @@ import json
 import boto3
 from boto3.dynamodb.conditions import Key
 from ebs_snapper import utils
+from ebs_snapper import EbsSnapperError
 
 
 def list_ids(context, installed_region, aws_account_id=None):
@@ -41,8 +42,8 @@ def list_ids(context, installed_region, aws_account_id=None):
         KeyConditionExpression=Key('aws_account_id').eq(aws_account_id)
     )
 
-    for item in results['Items']:
-        str_item = item['configuration']
+    for item in results.get('Items', []):
+        str_item = item.get('configuration', None)
         found_configurations[str_item] = item['id']
 
     return found_configurations.values()
@@ -61,10 +62,13 @@ def list_configurations(context, installed_region, aws_account_id=None):
         KeyConditionExpression=Key('aws_account_id').eq(aws_account_id)
     )
 
-    for item in results['Items']:
-        str_item = item['configuration']
-        json_item = json.loads(str_item)
-        found_configurations[str_item] = json_item
+    for item in results.get('Items', []):
+        str_item = item.get('configuration', None)
+        try:
+            json_item = json.loads(str_item)
+            found_configurations[str_item] = json_item
+        except Exception as e:
+            raise EbsSnapperError('error loading configuration', e)
 
     return found_configurations.values()
 
@@ -80,10 +84,13 @@ def get_configuration(context, installed_region, object_id, aws_account_id=None)
     expr = Key('aws_account_id').eq(aws_account_id) & Key('id').eq(object_id)
     results = table.query(KeyConditionExpression=expr)
 
-    for item in results['Items']:
-        str_item = item['configuration']
-        json_item = json.loads(str_item)
-        return json_item
+    for item in results.get('Items', []):
+        str_item = item.get('configuration', None)
+        try:
+            json_item = json.loads(str_item)
+            return json_item
+        except Exception as e:
+            raise EbsSnapperError('error loading configuration', e)
 
     return None
 

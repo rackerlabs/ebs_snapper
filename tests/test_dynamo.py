@@ -27,6 +27,7 @@ from moto import mock_dynamodb2
 from moto import mock_ec2, mock_sts, mock_iam
 import boto3
 from ebs_snapper import dynamo, mocks, utils
+from ebs_snapper import EbsSnapperError
 
 
 @mock_ec2
@@ -115,3 +116,59 @@ def test_configurations():
     assert specific_config is None
     fetched_configurations = dynamo.list_configurations(ctx, region)
     assert fetched_configurations == []
+
+
+@mock_ec2
+@mock_dynamodb2
+@mock_iam
+@mock_sts
+def test_store_bad_configuration():
+    """Test for storing a bad config."""
+
+    # region for our tests
+    region = 'us-east-1'
+
+    # create dummy ec2 instance so we can figure out account id
+    client = boto3.client('ec2', region_name=region)
+    client.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
+    aws_account_id = '111122223333'
+    object_id = 'foo'
+
+    # create a mock table
+    mocks.create_dynamodb(region)
+    ctx = utils.MockContext()
+
+    # make sure we successfully created the table
+    dynamodb = boto3.resource('dynamodb', region_name=region)
+    table = dynamodb.Table('ebs_snapshot_configuration')
+    assert table.table_status == "ACTIVE"
+
+    # put some bad data in
+    config_data = {
+        "match_bad_name": {
+            "instance-id": "i-abc12345",
+            "tag:plant": "special_flower",
+            "tag:Name": "legacy_server"
+        }
+    }
+
+    # this should blow up
+    with pytest.raises(Exception):
+        dynamo.store_configuration(region, object_id, aws_account_id, config_data)
+
+    # now force it
+    table.put_item(
+        Item={
+            'aws_account_id': aws_account_id,
+            'id': object_id,
+            'configuration': "{, 123 bare words :: }"
+        }
+    )
+
+    # now watch it blow up on listing them
+    with pytest.raises(EbsSnapperError):
+        dynamo.list_configurations(ctx, region, aws_account_id)
+
+    # now blow up on fetching a specific one by Key
+    with pytest.raises(EbsSnapperError):
+        dynamo.get_configuration(ctx, region, object_id, aws_account_id)

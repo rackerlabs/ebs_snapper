@@ -22,6 +22,7 @@
 """Module for doing EBS snapshots and cleaning up snapshots."""
 
 import logging
+import sys
 
 __title__ = 'ebs_snapper'
 __version__ = '0.6.1'
@@ -43,3 +44,11 @@ def timeout_check(context, place):
         return True
 
     return False
+
+
+class EbsSnapperError(Exception):
+    """Custom exception for nicer error messages"""
+    def __init__(self, msg, other):
+        self.traceback = sys.exc_info()
+        new_msg = '{}: {}'.format(msg, other.message)
+        super(EbsSnapperError, self).__init__(new_msg)
