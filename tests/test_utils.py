@@ -26,6 +26,7 @@ import dateutil
 import boto3
 from moto import mock_ec2, mock_sns, mock_iam, mock_sts
 from ebs_snapper import utils, mocks
+from ebs_snapper import AWS_MOCK_ACCOUNT
 
 
 @mock_ec2
@@ -38,7 +39,7 @@ def test_get_owner_id():
     client.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
 
     # show that get_owner_id can get the dummy owner id
-    assert ['111122223333'] == utils.get_owner_id(utils.MockContext())
+    assert [AWS_MOCK_ACCOUNT] == utils.get_owner_id(utils.MockContext())
 
 
 @mock_ec2

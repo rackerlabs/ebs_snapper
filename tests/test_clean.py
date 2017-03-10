@@ -26,6 +26,7 @@ import datetime
 import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_iam, mock_sts
 from ebs_snapper import clean, utils, mocks, dynamo
+from ebs_snapper import AWS_MOCK_ACCOUNT
 import dateutil
 
 
@@ -98,7 +99,7 @@ def test_clean_tagged_snapshots(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
 
     # figure out the EBS volume that came with our instance
     volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
@@ -118,7 +119,7 @@ def test_clean_tagged_snapshots(mocker):
     # now raise the minimum, and check to be sure we didn't delete
     utils.delete_snapshot.reset_mock()  # pylint: disable=E1103
     config_data['snapshot']['minimum'] = 5
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
     clean.clean_snapshot(ctx, region)
     utils.delete_snapshot.assert_not_called()  # pylint: disable=E1103
 
@@ -148,7 +149,7 @@ def test_clean_tagged_snapshots_ignore_retention(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
 
     # figure out the EBS volume that came with our instance
     volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
@@ -164,7 +165,7 @@ def test_clean_tagged_snapshots_ignore_retention(mocker):
     client.terminate_instances(InstanceIds=[instance_id])
 
     mocker.patch('ebs_snapper.utils.delete_snapshot')
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
     clean.clean_snapshot(ctx, region)
     utils.delete_snapshot.assert_any_call(snapshot_id, region)  # pylint: disable=E1103
 
@@ -193,7 +194,7 @@ def test_clean_snapshots_tagged_timeout(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
 
     # figure out the EBS volume that came with our instance
     volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
@@ -234,7 +235,7 @@ def test_clean_tagged_snapshots_ignore_instance(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
 
     # figure out the EBS volume that came with our instance
     volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
@@ -276,7 +277,7 @@ def test_clean_tagged_snapshots_ignore_volume(mocker):
     }
 
     # put it in the table, be sure it succeeded
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
 
     # figure out the EBS volume that came with our instance
     volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
@@ -297,6 +298,6 @@ def test_clean_tagged_snapshots_ignore_volume(mocker):
     # now raise the minimum, and check to be sure we didn't delete
     utils.delete_snapshot.reset_mock()  # pylint: disable=E1103
     config_data['snapshot']['minimum'] = 5
-    dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
     clean.clean_snapshot(ctx, region)
     utils.delete_snapshot.assert_not_called()  # pylint: disable=E1103
