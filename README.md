@@ -25,6 +25,8 @@ This software is provided to you as-is with no warranty or support, under the Ap
 
 NOTE: We recommend [downloading a release from S3](http://s3.amazonaws.com/production-ebs-snapper/), as shown below, into the directory you created above. It should be named `ebs_snapper.zip`. This will help be sure, in addition to using a specific tag for cloning, that you're truly deploying the version you think you are.
 
+We strongly recommend [using virtualenv](http://docs.python-guide.org/en/latest/dev/virtualenvs/) to install this tool, so you don't have any conflicts between ebs-snapper dependencies and other installed packages or system python packages.
+
 Since this package is not currently in PyPi, it will need to be installed locally: git clone the repo (choose a tag, please!) to your workstation then run these commands from inside the repo's main directory:
 ```
 git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.6.1
@@ -140,19 +142,48 @@ aws_account_id,id
 
 ### Snapshot command
 ```
-$ ebs-snapper -V snapshot 2>&1 | grep -v boto
-INFO:ebs_snapper.snapshot:send_fanout_message: {"instance_id": "i-c40d2659", "region": "us-east-1", "settings": {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}}
-INFO:ebs_snapper.snapshot:send_fanout_message: {"instance_id": "i-e937c975", "region": "us-east-1", "settings": {"snapshot": {"minimum": 5, "frequency": "6 hours", "retention": "5 days"}, "match": {"tag:backup": "yes"}}}
-INFO:ebs_snapper.shell:Function shell_fanout_snapshot completed
+$ ebs-snapper -V snapshot
+INFO:root:Reviewing snapshots in region us-east-1
+INFO:root:Building cache of instance, volume, and snapshots in us-east-1
+INFO:root:This may take a while...
+INFO:root:No configurations found in us-east-1, not building cache
+INFO:root:Reviewing snapshots in region us-west-2
+INFO:root:Building cache of instance, volume, and snapshots in us-west-2
+INFO:root:This may take a while...
+INFO:root:No configurations found in us-west-2, not building cache
+INFO:root:Function shell_fanout_snapshot completed
 ```
 
-As you can see, the tool has found two instances that match the configuration stanza, and is dispatching the work of evaluating if a snapshot is needed. The determination of whether or not a snapshot is needed is passed on to a second lambda job that will also perform the snapshot API calls if necessary.
+As you can see, the tool has found two instances that match the configuration stanza, and is dispatching the work of evaluating if a snapshot is needed. The determination of whether or not a snapshot is needed is passed on to a second lambda job that will also perform the snapshot API calls if necessary, however when run interactively using the CLI, all of the logic happens directly on the client (no Lambda jobs run).
 
 ### Clean command
 ```
-$ ebs-snapper clean --message '{"region": "us-east-1"}'
-Clean up snapshots in region us-east-1
-Function shell_clean completed
+ebs-snapper -V clean
+INFO:root:clean_snapshot in region us-east-1
+INFO:root:Building cache of instance, volume, and snapshots in us-east-1
+INFO:root:This may take a while...
+INFO:root:Retrieved 1 DynamoDB configurations for caching
+INFO:root:Retrieved 1 instances for caching
+INFO:root:Retrieved 1 volumes for caching
+INFO:root:Retrieved 10 snapshots for caching
+WARNING:root:Deleting snapshot snap-0de3326777957aa1d from us-east-1 (2017-03-05, count=10 > 5)
+INFO:root:Function clean_snapshots_tagged completed, deleted count: 1
+INFO:root:Function clean_snapshot completed
+INFO:root:Function clean_send_fanout_message completed
+INFO:root:clean_snapshot in region us-west-1
+INFO:root:Building cache of instance, volume, and snapshots in us-west-1
+INFO:root:This may take a while...
+INFO:root:Retrieved 1 DynamoDB configurations for caching
+INFO:root:Retrieved 0 instances for caching
+INFO:root:Retrieved 0 volumes for caching
+INFO:root:Retrieved 0 snapshots for caching
+WARNING:root:No snapshots were cleaned up for the entire region us-west-1
+INFO:root:Function clean_snapshot completed
+INFO:root:Function clean_send_fanout_message completed
+INFO:root:Function clean_perform_fanout_all_regions completed
+INFO:root:Function shell_fanout_clean completed
 ```
 
-As you can see, the `clean` subcommand does something similar to the snapshot one. It identifies all regions with currently running instances, and then dispatches a lambda job to scan that region for snapshots that might be able to be deleted. The actual work of determining what to delete and performing the delete API calls happens in the other lambda job.
+As you can see, the `clean` subcommand does something similar to the snapshot one. It identifies all regions with currently running instances, and then dispatches a lambda job to scan that region for snapshots that might be able to be deleted. The actual work of determining what to delete and performing the delete API calls happens in the other lambda job, however when run interactively using the CLI, all of the logic happens directly on the client (no Lambda jobs run).
+
+Specifically for the clean job, a cache is built of much of the needed data to do cleanup, since it's much more efficient to fetch in bulk than to fetch over and over for every single snapshot (and causes less calculations to be repeated).
