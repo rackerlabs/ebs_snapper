@@ -56,6 +56,10 @@ def get_owner_id(context, region=None):
 
     # see if Lambda context is non-None
     try:
+        # are we mocking? MockContext
+        if isinstance(context, MockContext):
+            return [ebs_snapper.AWS_MOCK_ACCOUNT]
+
         if context is not None:
             LOG.debug('get_owner_id: Lambda')
             return [context.invoked_function_arn.split(':')[4]]

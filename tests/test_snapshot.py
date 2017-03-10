@@ -25,8 +25,8 @@ import datetime
 import dateutil
 import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_sts, mock_iam
-from ebs_snapper import snapshot, dynamo, utils
-from ebs_snapper import mocks
+from ebs_snapper import snapshot, dynamo, utils, mocks
+from ebs_snapper import AWS_MOCK_ACCOUNT
 from crontab import CronTab
 
 
@@ -64,7 +64,7 @@ def test_perform_fanout_all_regions_snapshot(mocker):
             "frequency": "11 hours"
         }
     }
-    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', config_data)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', AWS_MOCK_ACCOUNT, config_data)
 
     # patch the final message sender method
     ctx = utils.MockContext()
@@ -100,7 +100,7 @@ def test_perform_snapshot(mocker):
 
     # need to filter instances, so need dynamodb present
     mocks.create_dynamodb('us-east-1')
-    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', AWS_MOCK_ACCOUNT, snapshot_settings)
 
     # figure out the EBS volume that came with our instance
     instance_details = utils.get_instance(instance_id, region)
@@ -164,7 +164,7 @@ def test_perform_snapshot_skipped(mocker):
         'match': {'tag:backup': 'yes'}
     }
     mocks.create_dynamodb('us-east-1')
-    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', AWS_MOCK_ACCOUNT, snapshot_settings)
 
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]
@@ -259,7 +259,7 @@ def test_perform_snapshot_ignore_instance(mocker):
 
     # need to filter instances, so need dynamodb present
     mocks.create_dynamodb('us-east-1')
-    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', AWS_MOCK_ACCOUNT, snapshot_settings)
 
     # patch the final method that takes a snapshot
     mocker.patch('ebs_snapper.utils.snapshot_and_tag')
@@ -293,7 +293,7 @@ def test_perform_snapshot_ignore_volume(mocker):
 
     # need to filter instances, so need dynamodb present
     mocks.create_dynamodb('us-east-1')
-    dynamo.store_configuration('us-east-1', 'some_unique_id', '111122223333', snapshot_settings)
+    dynamo.store_configuration('us-east-1', 'some_unique_id', AWS_MOCK_ACCOUNT, snapshot_settings)
 
     # figure out the EBS volume that came with our instance
     instance_details = utils.get_instance(instance_id, region)

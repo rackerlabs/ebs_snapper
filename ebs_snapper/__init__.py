@@ -31,6 +31,7 @@ __copyright__ = 'Copyright Rackspace US, Inc. 2015-2016'
 __url__ = 'https://github.com/rackerlabs/ebs-snapper-lambda-v2'
 
 LOG = logging.getLogger()
+AWS_MOCK_ACCOUNT = '123456789012'
 
 
 def timeout_check(context, place):

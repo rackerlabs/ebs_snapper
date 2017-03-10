@@ -27,7 +27,7 @@ from moto import mock_dynamodb2
 from moto import mock_ec2, mock_sts, mock_iam
 import boto3
 from ebs_snapper import dynamo, mocks, utils
-from ebs_snapper import EbsSnapperError
+from ebs_snapper import EbsSnapperError, AWS_MOCK_ACCOUNT
 
 
 @mock_ec2
@@ -91,19 +91,19 @@ def test_configurations():
     }
 
     # put it in the table, be sure it succeeded
-    response = dynamo.store_configuration(region, 'foo', '111122223333', config_data)
+    response = dynamo.store_configuration(region, 'foo', AWS_MOCK_ACCOUNT, config_data)
     assert response != {}
 
     # now list everything, be sure it was present
-    fetched_configurations = dynamo.list_configurations(ctx, region)
+    fetched_configurations = dynamo.list_configurations(ctx, region, AWS_MOCK_ACCOUNT)
     assert fetched_configurations == [config_data]
 
     # now get that specific one
-    specific_config = dynamo.get_configuration(ctx, region, 'foo', '111122223333')
+    specific_config = dynamo.get_configuration(ctx, region, 'foo', AWS_MOCK_ACCOUNT)
     assert specific_config == config_data
 
     # be sure another get for invalid item returns none
-    missing_config = dynamo.get_configuration(ctx, region, 'abc', '111122223333')
+    missing_config = dynamo.get_configuration(ctx, region, 'abc', AWS_MOCK_ACCOUNT)
     assert missing_config is None
 
     # be sure it returns in a list
@@ -111,8 +111,8 @@ def test_configurations():
     assert 'foo' in fetched_configurations
 
     # now delete it and confirm both list and get return nothing
-    dynamo.delete_configuration(region, 'foo', '111122223333')
-    specific_config = dynamo.get_configuration(ctx, region, 'foo', '111122223333')
+    dynamo.delete_configuration(region, 'foo', AWS_MOCK_ACCOUNT)
+    specific_config = dynamo.get_configuration(ctx, region, 'foo', AWS_MOCK_ACCOUNT)
     assert specific_config is None
     fetched_configurations = dynamo.list_configurations(ctx, region)
     assert fetched_configurations == []
@@ -131,7 +131,7 @@ def test_store_bad_configuration():
     # create dummy ec2 instance so we can figure out account id
     client = boto3.client('ec2', region_name=region)
     client.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
-    aws_account_id = '111122223333'
+    aws_account_id = AWS_MOCK_ACCOUNT
     object_id = 'foo'
 
     # create a mock table
