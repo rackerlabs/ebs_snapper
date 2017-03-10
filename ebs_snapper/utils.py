@@ -670,8 +670,8 @@ def chunk_volume_work(region, volume_list):
     }
 
 
-class MockContext(object):
-    """Context object when we're not running in lambda"""
+class NonLambdaContext(object):
+    """Context for when we're not running in Lambda"""
     # Useful information about the LambdaContext object
     # https://gist.github.com/gene1wood/c0d37dfcb598fc133a8c
 
@@ -702,3 +702,11 @@ class MockContext(object):
     def timedelta_milliseconds(td):
         """return milliseconds from a timedelta"""
         return td.days*86400000 + td.seconds*1000 + td.microseconds/1000
+
+
+class ShellContext(NonLambdaContext):
+    """Context for when we're running in the shell"""
+
+
+class MockContext(NonLambdaContext):
+    """Context object when we're running tests"""
