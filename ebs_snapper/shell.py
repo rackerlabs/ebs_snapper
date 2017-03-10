@@ -32,7 +32,7 @@ import ebs_snapper
 from ebs_snapper import snapshot, clean, dynamo, utils, deploy
 
 LOG = logging.getLogger()
-CTX = utils.MockContext()
+CTX = utils.ShellContext()
 
 
 def main(arv=None):
@@ -185,7 +185,7 @@ def shell_configure(*args):
     installed_region = args[0].conf_toolregion
 
     if action == 'list':
-        LOG.info('Listing all object keys')
+        LOG.info('Listing all object keys for %s', aws_account_id)
         list_results = dynamo.list_ids(
             CTX,
             installed_region,
