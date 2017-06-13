@@ -1,6 +1,7 @@
+dicttoxml==1.7.4
 flake8==3.3.0
-moto==0.4.31
-pylint==1.6.5
+moto==1.0.1
+pylint==1.7.1
 pytest-mock==1.5.0
 pytest==3.0.6
 tox-pyenv==1.0.3

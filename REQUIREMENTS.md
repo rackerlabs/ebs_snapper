@@ -23,6 +23,7 @@ Rackspace Fanatical Support for AWS provides Aviator service level customers wit
 -	Ability to retain a minimum number of snapshots regardless of retention period
 - All tags from a volume should be transferred to snapshots
 -	Rackspace ticket notification and response should an EBS snapshot failure occur
+- Ability to copy snapshots to another region, and clean them up when original snapshot is deleted
 
 ## Out of scope
 
@@ -32,4 +33,3 @@ We discussed the following features, which could be useful, but are currently ou
 - Workflow of: Shut down, snapshot, and start up EC2 instance
 - File level backups: currently a customer responsibility; not provided by Rackspace.
 - Inconsistent snapshots: customers must work with Rackspace to ensure consistent data is written to disk, e.g. local file-level backups of a database server, so that EBS snapshots are consistent and usable.
-- Snapshot replication: This tool will not replicate snapshots between regions at this time.

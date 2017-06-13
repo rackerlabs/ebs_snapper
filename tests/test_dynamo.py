@@ -30,6 +30,13 @@ from ebs_snapper import dynamo, mocks, utils
 from ebs_snapper import EbsSnapperError, AWS_MOCK_ACCOUNT
 
 
+def setup_module(module):
+    import logging
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
+
+
 @mock_ec2
 @mock_dynamodb2
 @mock_iam

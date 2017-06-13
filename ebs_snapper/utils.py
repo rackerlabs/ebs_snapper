@@ -35,6 +35,7 @@ import boto3
 from crontab import CronTab
 from pytimeparse.timeparse import timeparse
 import ebs_snapper
+from ebs_snapper import timeout_check
 
 LOG = logging.getLogger()
 AWS_TAGS = [
@@ -109,8 +110,8 @@ def get_owner_id(context, region=None):
         regions = get_regions(must_contain_instances=True)
 
     owners = []
-    for region in regions:
-        client = boto3.client('ec2', region_name=region)
+    for r in regions:
+        client = boto3.client('ec2', region_name=r)
         instances = client.describe_instances()
         owners.extend([x['OwnerId'] for x in instances['Reservations']])
 
@@ -140,17 +141,22 @@ def ignore_retention_enabled(configurations):
     return False
 
 
-def get_regions(must_contain_instances=False):
+def get_regions(must_contain_instances=False, must_contain_snapshots=False):
     """Get regions, optionally filtering by regions containing instances."""
     LOG.debug('get_regions(must_contain_instances=%s)', must_contain_instances)
     client = boto3.client('ec2', region_name='us-east-1')
     regions = client.describe_regions()
     region_names = [x['RegionName'] for x in regions['Regions']]
 
-    if must_contain_instances:
+    if must_contain_instances and must_contain_snapshots:
+        return [x for x in region_names if
+                region_contains_instances(x) and region_contains_snapshots(x)]
+    elif must_contain_instances:
         return [x for x in region_names if region_contains_instances(x)]
-    else:
-        return region_names
+    elif must_contain_snapshots:
+        return [x for x in region_names if region_contains_snapshots(x)]
+
+    return region_names
 
 
 def region_contains_instances(region):
@@ -161,6 +167,16 @@ def region_contains_instances(region):
                   'Values': ['running', 'stopped']}]
     )
     return 'Reservations' in instances and len(instances['Reservations']) > 0
+
+
+def region_contains_snapshots(region):
+    """Check if a region contains snapshots instances"""
+    client = boto3.client('ec2', region_name=region)
+    snapshots = client.describe_snapshots(
+        OwnerIds=get_owner_id(region),
+        MaxResults=5
+    )
+    return 'Snapshots' in snapshots and len(snapshots['Snapshots']) > 0
 
 
 def get_topic_arn(topic_name, default_region='us-east-1'):
@@ -670,6 +686,82 @@ def chunk_volume_work(region, volume_list):
     }
 
 
+def build_replication_cache(context, tags, configurations, region, installed_region):
+    """Build a giant cache of replication-relevant snapshots for region"""
+    LOG.debug("Building cache of replication-relevant snapshots in %s", region)
+
+    # all replication-related snapshots will have one or the other of these tags
+    found_snapshots = {}
+
+    ec2 = boto3.client('ec2', region_name=region)
+    region_owner_ids = get_owner_id(region)
+    for tag in tags:
+        found_snapshots[tag] = []
+
+        paginator = ec2.get_paginator('describe_snapshots')
+        operation_parameters = {
+            'Filters': [{'Name': 'tag-key', 'Values': [tag]}],
+            'OwnerIds': region_owner_ids,
+        }
+        sleep(1)  # help w/ API limits
+        for page in paginator.paginate(**operation_parameters):
+            if timeout_check(context, 'perform_replication'):
+                break
+
+            if not page and 'Snapshots' not in page:
+                continue
+
+            for snapshot in page['Snapshots']:
+                found_snapshots[tag].append(snapshot)
+                if timeout_check(context, 'perform_replication'):
+                    break
+
+    return found_snapshots
+
+
+def copy_snapshot_and_tag(context, source_region, dest_region, snapshot_id, snapshot_description):
+    """Copy a snapshot to another region and tag it as such"""
+    ec2 = boto3.client('ec2', region_name=dest_region)
+    result = ec2.copy_snapshot(
+        SourceRegion=source_region,
+        SourceSnapshotId=snapshot_id,
+        Description=snapshot_description,
+    )
+    sleep(1)
+    created_snapshot_id = result['SnapshotId']
+    ec2.create_tags(
+        Resources=[created_snapshot_id],
+        Tags=[
+            {'Key': 'replication_src_region', 'Value': source_region},
+            {'Key': 'replication_snapshot_id', 'Value': snapshot_id}
+        ]
+    )
+
+    return created_snapshot_id
+
+
+def find_replication_cw_event_rule(context, default_region='us-east-1'):
+    """Find and return information about the replication cloudwatch event rule"""
+
+    # describe cloudformation stack
+    aws_account = get_owner_id(context)
+    stack_name = 'ebs-snapper-{}'.format(aws_account[0])
+    cf_client = boto3.client('cloudformation', region_name=default_region)
+
+    # get replication rule name
+    stack_data = cf_client.describe_stack_resources(StackName=stack_name)
+    for stack_resource in stack_data['StackResources']:
+        if stack_resource.get('ResourceType', '') != 'AWS::Events::Rule':
+            continue
+
+        if stack_resource.get('LogicalResourceId', '') != 'ScheduledRuleReplicationFunction':
+            continue
+
+        return stack_resource['PhysicalResourceId']
+
+    raise Exception('Could not find replication cloudwatch event rule')
+
+
 class NonLambdaContext(object):
     """Context for when we're not running in Lambda"""
     # Useful information about the LambdaContext object
@@ -695,8 +787,7 @@ class NonLambdaContext(object):
 
         if time_left < 0:
             return 0
-        else:
-            return time_left
+        return time_left
 
     @staticmethod
     def timedelta_milliseconds(td):

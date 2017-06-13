@@ -25,9 +25,17 @@ import datetime
 import dateutil
 import boto3
 from moto import mock_ec2, mock_sns, mock_dynamodb2, mock_sts, mock_iam
+from moto import mock_events, mock_cloudformation
 from ebs_snapper import snapshot, dynamo, utils, mocks
 from ebs_snapper import AWS_MOCK_ACCOUNT
 from crontab import CronTab
+
+
+def setup_module(module):
+    import logging
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
 
 
 @mock_ec2
@@ -35,10 +43,13 @@ from crontab import CronTab
 @mock_sns
 @mock_iam
 @mock_sts
+@mock_events
+@mock_cloudformation
 def test_perform_fanout_all_regions_snapshot(mocker):
     """Test for method of the same name."""
 
     # make a dummy SNS topic
+    mocks.create_event_rule('ScheduledRuleReplicationFunction')
     mocks.create_sns_topic('CreateSnapshotTopic')
     expected_sns_topic = utils.get_topic_arn('CreateSnapshotTopic', 'us-east-1')
 

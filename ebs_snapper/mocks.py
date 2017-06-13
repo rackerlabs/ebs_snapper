@@ -78,3 +78,16 @@ def create_instances(region='us-east-1', count=1):
         ids.append(created_instance['InstanceId'])
 
     return ids
+
+
+def create_event_rule(name, region='us-east-1'):
+    """Create a dummy cloudwatch event rule"""
+
+    client = boto3.client('events', region_name=region)
+    client.put_rule(
+        Name=name,
+        ScheduleExpression='rate(5 minutes)',
+        State='ENABLED',
+        Description='string',
+        RoleArn='string'
+    )

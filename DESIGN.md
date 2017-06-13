@@ -33,6 +33,9 @@ Note: All instances will be filtered by whether they are running or stopped, usi
   - ignore_retention flag
     - a JSON boolean value, if enabled, causes EBS Snapper to ignore snapshot retention settings when it can't calculate the minimum number of snapshots present, and delete a snapshots with an appropriate `DeleteOn` tag regardless
 
+  - replication flag
+    - a string 'yes' to indicate that replication should run on this account
+
 [1] http://boto3.readthedocs.io/en/latest/reference/services/ec2.html#EC2.Client.describe_instances
 
 Example of a JSON document from the DynamoDB table's `configuration` field (see [cloudformation template](cloudformation.json)):
@@ -95,6 +98,16 @@ For the input region, loop through every configuration stanze, and search for EC
 ### Clean up algorithm - 'ebs_snapper_clean'
 
 For the input region, loop through every snapshot (ec2-describe-snapshots) with a retention tag. If the current time is after the retention value, and there are a minimum number of snapshots present, (or if the ignore_retention flag is set), delete the snapshot. This job will run on SNS trigger from the 'clean' fanout job.
+
+## Replication
+
+Replication is intended to be somewhat independent from the actual process of building and cleaning up snapshots within a single region. Replication is driven by three specific tags on a snapshot: replication_dst_region, replication_src_region, and replication_snapshot_id.
+
+ - Tag replication_dst_region should be copied from an instance and/or volume, and specify what region this snapshot be replicated into
+ - Tags replication_src_region and replication_snapshot_id specify where a replicated snapshot originally came from
+
+You *must* set `'replication': 'yes'` on at least one snapshot configuration to instruct EBS Snapper to keep the replication cloudwatch rule enabled, otherwise it will be disabled. EBS Snapper will simply copy snapshots to another region if they don't already exist there, and cleanup copies if they originals don't exist.
+
 
 ## Python modules, project organization
 

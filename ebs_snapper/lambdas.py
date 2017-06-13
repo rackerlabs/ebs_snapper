@@ -25,8 +25,7 @@ from __future__ import print_function
 
 import json
 import logging
-
-from ebs_snapper import snapshot, clean
+from ebs_snapper import snapshot, clean, replication
 
 LOG = logging.getLogger()
 
@@ -59,6 +58,21 @@ def lambda_fanout_clean(event, context):
     clean.perform_fanout_all_regions(context)
 
     LOG.info('Function lambda_fanout_clean completed')
+
+
+def lambda_fanout_replication(event, context):
+    """Fanout SNS messages to replicate snapshots when called by AWS Lambda."""
+
+    # baseline logging for lambda
+    logging.basicConfig(level=logging.INFO)
+    LOG.setLevel(logging.INFO)
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+
+    # for every region, send to this function
+    replication.perform_fanout_all_regions(context)
+
+    LOG.info('Function lambda_fanout_replication completed')
 
 
 def lambda_snapshot(event, context):
@@ -135,3 +149,40 @@ def lambda_clean(event, context):
         clean.clean_snapshot(context, message_json['region'])
 
     LOG.info('Function lambda_clean completed')
+
+
+def lambda_replication(event, context):
+    """Perform replication in a single region when called by AWS Lambda."""
+
+    # baseline logging for lambda
+    logging.basicConfig(level=logging.INFO)
+    LOG.setLevel(logging.INFO)
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+
+    if not (event and event.get('Records')):
+        LOG.warn('lambda_replication must be invoked from an SNS topic')
+        return
+
+    records = event.get('Records')
+    for record in records:
+        sns = record.get('Sns')
+        if not sns:
+            LOG.warn('lambda_replication missing an SNS section: %s', str(event))
+            continue
+
+        message = sns.get('Message')
+        if not message:
+            LOG.warn('lambda_replication missing a message section: %s', str(event))
+            continue
+
+        message_json = json.loads(message)
+
+        if 'region' not in message_json:
+            LOG.warn('lambda_replication missing specific keys: %s', str(event))
+            continue
+
+        # call the snapshot cleanup method
+        replication.perform_replication(context, message_json['region'])
+
+    LOG.info('Function lambda_replication completed')

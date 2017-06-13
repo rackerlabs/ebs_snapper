@@ -29,7 +29,7 @@ import argparse
 import json
 
 import ebs_snapper
-from ebs_snapper import snapshot, clean, dynamo, utils, deploy
+from ebs_snapper import snapshot, clean, replication, dynamo, utils, deploy
 
 LOG = logging.getLogger()
 CTX = utils.ShellContext()
@@ -78,6 +78,14 @@ def main(arv=None):
     '''
     parser_clean = subparsers.add_parser('clean', help=clean_help)
     parser_clean.set_defaults(func=shell_fanout_clean)
+
+    # snapshot replication subcommand (fanout)
+    snapshot_replication_help = '''
+        replicate snapshots to secondary region or clean up existing replicated snapshots
+    '''
+    parser_snapshot_replication = subparsers.add_parser('replication',
+                                                        help=snapshot_replication_help)
+    parser_snapshot_replication.set_defaults(func=shell_fanout_snapshot_replication)
 
     # deploy subcommand
     deploy_help = '''
@@ -154,6 +162,13 @@ def shell_fanout_clean(*args):
     # for every region, send to this function
     clean.perform_fanout_all_regions(CTX, cli=True)
     LOG.info('Function shell_fanout_clean completed')
+
+
+def shell_fanout_snapshot_replication(*args):
+    """Print fanout JSON messages, instead of sending them like lambda version."""
+    # for every region and every instance, send to this function
+    replication.perform_fanout_all_regions(CTX, cli=True)
+    LOG.info('Function shell_fanout_snapshot_replication completed')
 
 
 def shell_deploy(*args):
