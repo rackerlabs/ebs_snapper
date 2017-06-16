@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+- Support for cross-region snapshot replication (#38)
+- Cleanup old versions of EBS Snapper functions during deployment (#37)
+- Better error logging for bad configurations (#28)
+- Centralize dummy AWS account number due to moto changes (#33)
+- Better context objects and documentation (#35)
+
 ## 0.6.1
 
 - Be sure we only touch retention when touching functions (#27)
