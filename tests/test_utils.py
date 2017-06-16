@@ -29,6 +29,13 @@ from ebs_snapper import utils, mocks
 from ebs_snapper import AWS_MOCK_ACCOUNT
 
 
+def setup_module(module):
+    import logging
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
+
+
 @mock_ec2
 @mock_iam
 @mock_sts
@@ -45,27 +52,46 @@ def test_get_owner_id():
 @mock_ec2
 @mock_iam
 @mock_sts
-def test_get_regions_with_instances():
+def test_get_regions_with_instances_or_snapshots():
     """Test for method of the same name."""
-    client = boto3.client('ec2', region_name='us-west-2')
+    client_uswest2 = boto3.client('ec2', region_name='us-west-2')
 
     # toss an instance in us-west-2
-    client.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
+    client_uswest2.run_instances(ImageId='ami-123abc', MinCount=1, MaxCount=5)
 
     # be sure we get us-west-2 *only*
-    assert ['us-west-2'] == utils.get_regions(must_contain_instances=True)
+    assert ['us-west-2'] == utils.get_regions(
+        must_contain_instances=True,
+        must_contain_snapshots=False)
 
-
-@mock_ec2
-@mock_iam
-@mock_sts
-def test_get_regions_ignore_instances():
-    """Test for method of the same name."""
-    found_instances = utils.get_regions(must_contain_instances=False)
+    # now say we don't filter by instances, be sure we get a lot of regions
+    found_regions = utils.get_regions(
+        must_contain_instances=False,
+        must_contain_snapshots=False)
     expected_regions = ['eu-west-1', 'sa-east-1', 'us-east-1',
                         'ap-northeast-1', 'us-west-2', 'us-west-1']
     for expected_region in expected_regions:
-        assert expected_region in found_instances
+        assert expected_region in found_regions
+
+    # now take a snapshot
+    client_uswest1 = boto3.client('ec2', region_name='us-west-1')
+    volume_results = client_uswest1.create_volume(Size=100, AvailabilityZone='us-west-1a')
+    client_uswest1.create_snapshot(VolumeId=volume_results['VolumeId'])
+
+    # be sure that snapshot filter works and only returns the snapshot region
+    assert ['us-west-1'] == utils.get_regions(
+        must_contain_instances=False,
+        must_contain_snapshots=True)
+
+    # now filter by both, should be nothing returned
+    found_regions = utils.get_regions(must_contain_instances=True, must_contain_snapshots=True)
+    assert len(found_regions) == 0
+
+    # now snap in us-west-2 where we have an instance as well
+    volume_results2 = client_uswest2.create_volume(Size=100, AvailabilityZone='us-west-2a')
+    client_uswest2.create_snapshot(VolumeId=volume_results2['VolumeId'])
+    found_regions = utils.get_regions(must_contain_instances=True, must_contain_snapshots=True)
+    assert found_regions == ['us-west-2']
 
 
 @mock_ec2
@@ -83,6 +109,24 @@ def test_region_contains_instances():
 
     # be sure we don't get us-east-1
     assert not utils.region_contains_instances('us-east-1')
+
+
+@mock_ec2
+@mock_iam
+@mock_sts
+def test_region_contains_snapshots():
+    """Test for method of the same name."""
+    client = boto3.client('ec2', region_name='us-west-2')
+
+    # toss a volume in us-west-2 and snapshot it
+    volume_results = client.create_volume(Size=100, AvailabilityZone='us-west-1a')
+    client.create_snapshot(VolumeId=volume_results['VolumeId'])
+
+    # be sure we get us-west-2
+    assert utils.region_contains_snapshots('us-west-2')
+
+    # be sure we don't get us-east-1
+    assert not utils.region_contains_snapshots('us-east-1')
 
 
 @mock_ec2
@@ -257,3 +301,44 @@ def test_calculate_relevant_tags():
 
     for k, v in expected_pairs.iteritems():
         assert {'Key': k, 'Value': v} in created_snap['Tags']
+
+
+@mock_ec2
+@mock_sns
+@mock_iam
+@mock_sts
+def test_build_replication_cache():
+    """Test that we build a list of snapshots with correct groupings"""
+
+    # setup variables
+    region = 'us-west-2'
+    installed_region = 'us-east-1'
+    context = utils.MockContext()
+    tags = ['replication_src_region', 'replication_dst_region']
+    configurations = []
+    client = boto3.client('ec2', region_name=region)
+
+    # toss a volume in us-west-2 and snapshot it twice
+    volume_results = client.create_volume(Size=100, AvailabilityZone='us-west-1a')
+    src_snapshot = client.create_snapshot(VolumeId=volume_results['VolumeId'])
+    dst_snapshot = client.create_snapshot(VolumeId=volume_results['VolumeId'])
+
+    # build the cache and be sure they don't show up
+    cache1 = utils.build_replication_cache(context, tags, configurations, region, installed_region)
+    for t in tags:
+        assert len(cache1.get(t, [])) == 0
+
+    # now tag...
+    client.create_tags(
+        Resources=[src_snapshot['SnapshotId']],
+        Tags=[{'Key': 'replication_src_region', 'Value': 'us-west-1'}]
+    )
+    client.create_tags(
+        Resources=[dst_snapshot['SnapshotId']],
+        Tags=[{'Key': 'replication_dst_region', 'Value': 'us-west-1'}]
+    )
+
+    # build cache again, and expect to see the tagged snapshots
+    cache2 = utils.build_replication_cache(context, tags, configurations, region, installed_region)
+    assert cache2['replication_src_region'][0]['SnapshotId'] == src_snapshot['SnapshotId']
+    assert cache2['replication_dst_region'][0]['SnapshotId'] == dst_snapshot['SnapshotId']

@@ -30,6 +30,13 @@ from ebs_snapper import AWS_MOCK_ACCOUNT
 import dateutil
 
 
+def setup_module(module):
+    import logging
+    logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('boto3').setLevel(logging.WARNING)
+    logging.basicConfig(level=logging.INFO)
+
+
 @mock_ec2
 @mock_sns
 @mock_dynamodb2

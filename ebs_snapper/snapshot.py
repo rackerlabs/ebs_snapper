@@ -28,18 +28,43 @@ import logging
 from datetime import timedelta
 import datetime
 import dateutil
+import boto3
 
 from ebs_snapper import utils, dynamo, timeout_check
+from ebs_snapper.utils import MockContext
 
 
 LOG = logging.getLogger()
 
 
-def perform_fanout_all_regions(context, cli=False):
-    """For every region, run the supplied function"""
+def ensure_cloudwatch_rule_for_replication(context, installed_region='us-east-1'):
+    """Be sure replication is running, or not running, based on configs"""
+    client = boto3.client('events', region_name=installed_region)
+    cw_rule_name = utils.find_replication_cw_event_rule(context)
+    current_state = client.describe_rule(Name=cw_rule_name)
+    configurations = dynamo.list_configurations(context, installed_region)
+    replication = False
+    for cfg in configurations:
+        if 'replication' in cfg and cfg['replication'] == 'yes':
+            replication = True
+
+    if replication and current_state['State'] == 'DISABLED':
+        LOG.warn('Enabling snapshot replication due to configuration.')
+        client.enable_rule(Name=cw_rule_name)
+    elif not replication and current_state['State'] == 'ENABLED':
+        LOG.warn('Disabling snapshot replication due to configuration.')
+        client.disable_rule(Name=cw_rule_name)
+
+
+def perform_fanout_all_regions(context, cli=False, installed_region='us-east-1'):
+    """For every region, send a message (lambda) or run snapshots (cli)"""
 
     sns_topic = utils.get_topic_arn('CreateSnapshotTopic')
     LOG.debug('perform_fanout_all_regions using SNS topic %s', sns_topic)
+
+    # configure replication based on extant configs for snapshots
+    if type(context) is not MockContext:  # don't do in unit tests
+        ensure_cloudwatch_rule_for_replication(context, installed_region)
 
     # get regions with instances running or stopped
     regions = utils.get_regions(must_contain_instances=True)
@@ -54,7 +79,7 @@ def perform_fanout_all_regions(context, cli=False):
 
 
 def send_fanout_message(context, region, sns_topic, cli=False):
-    """Send message to all instance_id's in region. Filters must be in the boto3 format."""
+    """Send message to perform snapshots for all instance_id's in region."""
 
     message = json.dumps({'region': region})
     LOG.debug('send_fanout_message: %s', message)
