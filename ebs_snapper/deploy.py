@@ -263,6 +263,34 @@ def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
 
     # publish new version / activate them
     for function_name in lambda_function_map.keys():
+        # cleanup opportunity, only retain last 2 versions
+        versions_found = []
+        version_list = lambda_client.list_versions_by_function(FunctionName=function_name)
+        for function_info in version_list['Versions']:
+            if function_info['Version'] == '$LATEST':
+                continue
+
+            versions_found.append(long(function_info['Version']))
+
+        if len(versions_found) > 2:
+            LOG.warn('Found more than 2 old versions of EBS Snapper. Cleaning.')
+            try:
+                # take off those last 2
+                versions_found.sort()
+                versions_found.pop()
+                versions_found.pop()
+
+                for v in versions_found:
+                    LOG.warn('Removing %s function version %s...',
+                             function_name,
+                             str(v))
+                    lambda_client.delete_function(
+                        FunctionName=function_name,
+                        Qualifier=str(v)
+                    )
+            except:
+                LOG.warn('EBS Snapper cleanup failed!')
+
         new_hash = lambda_function_map[function_name]['CodeSha256']
 
         if existing_hash == new_hash:
