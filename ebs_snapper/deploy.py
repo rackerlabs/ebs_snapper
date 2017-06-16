@@ -36,7 +36,6 @@ import ebs_snapper
 from ebs_snapper import utils
 
 LOG = logging.getLogger()
-DEFAULT_REGION = 'us-east-1'
 STACK_WAIT_STATUS = ['CREATE_IN_PROGRESS', 'UPDATE_IN_PROGRESS',
                      'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS']
 STACK_FATAL_STATUS = ['CREATE_FAILED', 'ROLLBACK_IN_PROGRESS',
@@ -49,7 +48,7 @@ IGNORED_UPLOADER_FILES = ["circle.yml", ".git", "/*.pyc", "\\.cache",
                           "\\.json$", "\\.sh$", "\\.zip$"]
 
 
-def deploy(context, aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
+def deploy(context, aws_account_id=None, no_build=None, no_upload=None, no_stack=None, installed_region='us-east-1'):
     """Main function that does the deploy to an aws account"""
     # lambda-uploader configuration step
 
@@ -77,27 +76,40 @@ def deploy(context, aws_account_id=None, no_build=None, no_upload=None, no_stack
 
         # freshen the S3 bucket
         if not no_upload:
-            ebs_bucket_name = create_or_update_s3_bucket(aws_account, lambda_zip_filename)
+            ebs_bucket_name = create_or_update_s3_bucket(aws_account, installed_region, lambda_zip_filename)
 
         # freshen the stack
         if not no_stack:
-            create_or_update_stack(aws_account, DEFAULT_REGION, ebs_bucket_name)
+            create_or_update_stack(aws_account, installed_region, ebs_bucket_name)
 
     # freshen up lambda jobs themselves
     if not no_upload:
-        update_function_and_version(ebs_bucket_name, lambda_zip_filename)
-        ensure_cloudwatch_logs_retention(aws_account)
+        update_function_and_version(ebs_bucket_name, installed_region, lambda_zip_filename)
+        ensure_cloudwatch_logs_retention(aws_account, installed_region)
 
 
-def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
+def create_or_update_s3_bucket(aws_account, installed_region, lambda_zip_filename):
     """Ensure the S3 bucket exists, then upload CF and Lambda files"""
     # ensure S3 bucket exists
-    s3_client = boto3.client('s3', region_name=DEFAULT_REGION)
+    s3_client = boto3.client('s3', region_name=installed_region)
     ebs_bucket_name = 'ebs-snapper-{}'.format(aws_account)
-    LOG.info("Creating S3 bucket %s if it doesn't exist", ebs_bucket_name)
-    s3_client.create_bucket(
-        ACL='private',
-        Bucket=ebs_bucket_name)
+    LOG.info("Creating S3 bucket %s in %s if it doesn't exist", ebs_bucket_name, installed_region)
+    try:
+        if installed_region == 'us-east-1':
+            s3_client.create_bucket(
+                ACL='private',
+                Bucket=ebs_bucket_name
+            )
+        else:
+            s3_client.create_bucket(
+                ACL='private',
+                Bucket=ebs_bucket_name,
+                CreateBucketConfiguration={'LocationConstraint': installed_region}
+            )
+    except ClientError as ex:
+        # don't raise an error if it already exists
+        if 'BucketAlreadyOwnedByYou' not in str(ex):
+            raise
 
     # upload files to S3 bucket
     LOG.info("Uploading files into S3 bucket")
@@ -225,9 +237,9 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
     wait_for_completion(cf_client, stack_name)
 
 
-def ensure_cloudwatch_logs_retention(aws_account):
+def ensure_cloudwatch_logs_retention(aws_account, installed_region):
     """Be sure retention values are set on CloudWatch Logs for this tool"""
-    cwlogs_client = boto3.client('logs', region_name=DEFAULT_REGION)
+    cwlogs_client = boto3.client('logs', region_name=installed_region)
     loggroup_prefix = '/aws/lambda/ebs-snapper-{}-'.format(str(aws_account))
 
     list_groups = cwlogs_client.describe_log_groups(logGroupNamePrefix=loggroup_prefix)
@@ -243,9 +255,9 @@ def ensure_cloudwatch_logs_retention(aws_account):
         )
 
 
-def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
+def update_function_and_version(ebs_bucket_name, installed_region, lambda_zip_filename):
     """Re-publish lambda function and a new version based on our version"""
-    lambda_client = boto3.client('lambda', region_name=DEFAULT_REGION)
+    lambda_client = boto3.client('lambda', region_name=installed_region)
     lambda_function_list = lambda_client.list_functions()
     lambda_function_map = dict()
     for entry in lambda_function_list['Functions']:

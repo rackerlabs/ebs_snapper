@@ -173,13 +173,15 @@ def shell_fanout_snapshot_replication(*args):
 
 def shell_deploy(*args):
     """Deploy this tool to a given account."""
+
     # call the snapshot cleanup method
     deploy.deploy(
         CTX,
         aws_account_id=args[0].aws_account_id,
         no_build=args[0].no_build,
         no_upload=args[0].no_upload,
-        no_stack=args[0].no_stack
+        no_stack=args[0].no_stack,
+        installed_region=args[0].conf_toolregion
         )
 
     LOG.info('Function shell_deploy completed')
