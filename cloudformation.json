@@ -151,7 +151,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "2",
-        "Period" : "21600",
+        "Period" : "1800",
         "Statistic" : "Sum",
         "Threshold" : "2",
         "Dimensions" : [{
@@ -274,7 +274,7 @@
         "Namespace" : "AWS/Lambda",
         "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
         "EvaluationPeriods" : "2",
-        "Period" : "21600",
+        "Period" : "1800",
         "Statistic" : "Sum",
         "Threshold" : "2",
         "Dimensions" : [{
@@ -332,6 +332,7 @@
                     "ec2:CreateTags",
                     "ec2:CreateSnapshot",
                     "ec2:DeleteSnapshot",
+                    "ec2:CopySnapshot",
                     "events:Describe*",
                     "events:List*",
                     "events:EnableRule",
@@ -466,6 +467,15 @@
           "Arn": { "Fn::GetAtt": ["FanoutCleanSnapshotFunction", "Arn"] },
           "Id": "TargetFunctionV1"
         }]
+      }
+    },
+    "LambdaInvokeReplicationPermissionScheduledRule": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName" : { "Fn::GetAtt" : ["FanoutReplicationSnapshotFunction", "Arn"] },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "sns.amazonaws.com",
+        "SourceArn" : { "Fn::GetAtt": ["ScheduledRuleReplicationFunction", "Arn"] }
       }
     },
     "ScheduledRuleReplicationFunction": {
