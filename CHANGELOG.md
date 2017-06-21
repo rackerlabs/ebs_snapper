@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.2
+
+- Fix a permissions issue with invocation of Lambda functions via CloudWatch (#41)
+
 ## 0.7.1
 
 - Use a replication alarm threshold more like the snapshot threshold, since it runs just as frequently (#40)
