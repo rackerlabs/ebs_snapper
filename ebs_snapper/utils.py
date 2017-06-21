@@ -722,22 +722,33 @@ def build_replication_cache(context, tags, configurations, region, installed_reg
 def copy_snapshot_and_tag(context, source_region, dest_region, snapshot_id, snapshot_description):
     """Copy a snapshot to another region and tag it as such"""
     ec2 = boto3.client('ec2', region_name=dest_region)
-    result = ec2.copy_snapshot(
-        SourceRegion=source_region,
-        SourceSnapshotId=snapshot_id,
-        Description=snapshot_description,
-    )
-    sleep(1)
-    created_snapshot_id = result['SnapshotId']
-    ec2.create_tags(
-        Resources=[created_snapshot_id],
-        Tags=[
-            {'Key': 'replication_src_region', 'Value': source_region},
-            {'Key': 'replication_snapshot_id', 'Value': snapshot_id}
-        ]
-    )
+    try:
+        result = ec2.copy_snapshot(
+            SourceRegion=source_region,
+            SourceSnapshotId=snapshot_id,
+            Description=snapshot_description,
+        )
+        sleep(1)
+        created_snapshot_id = result['SnapshotId']
+        ec2.create_tags(
+            Resources=[created_snapshot_id],
+            Tags=[
+                {'Key': 'replication_src_region', 'Value': source_region},
+                {'Key': 'replication_snapshot_id', 'Value': snapshot_id}
+            ]
+        )
 
-    return created_snapshot_id
+        return created_snapshot_id
+    except Exception as e:
+        if 'Too many snapshot copies in progress.' in str(e):
+            LOG.warn('Too many snapshots already in progress, cannot copy %s to %s from %s',
+                     snapshot_id,
+                     source_region,
+                     dest_region)
+        else:
+            raise e
+
+    return None
 
 
 def find_replication_cw_event_rule(context, default_region='us-east-1'):
