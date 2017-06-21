@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.1
+
+- Use a replication alarm threshold more like the snapshot threshold, since it runs just as frequently (#40)
+- Catch when too many snapshots are in progress and log it, vs. triggering a ticket (#40)
+- Add CreateSnapshot permission explicitly to the role used by Lambda (#40)
+- Adjust the CFN resources to be sure the trigger is setup correctly (#40)
+
 ## 0.7.0
 
 - Support for cross-region snapshot replication (#38)
