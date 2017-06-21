@@ -474,7 +474,7 @@
       "Properties": {
         "FunctionName" : { "Fn::GetAtt" : ["FanoutReplicationSnapshotFunction", "Arn"] },
         "Action": "lambda:InvokeFunction",
-        "Principal": "sns.amazonaws.com",
+        "Principal": "events.amazonaws.com",
         "SourceArn" : { "Fn::GetAtt": ["ScheduledRuleReplicationFunction", "Arn"] }
       }
     },
