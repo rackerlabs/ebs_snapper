@@ -3,7 +3,7 @@
   "Description" : "Configures SNS topics and Lambda jobs for EBS Snapshot management",
   "Parameters" : {
     "WatchdogRegion" : {
-      "Description" : "Region where rackspace-support topic is deployed (Janus is in us-west-2)",
+      "Description" : "Region where rackspace-support-standard topic is deployed (Janus is in us-west-2)",
       "Type": "String",
       "Default" : "us-east-1",
       "AllowedValues" : ["us-west-1", "us-west-2", "us-east-1", "sa-east-1", "eu-west-1", "eu-central-1", "ap-southeast-2", "ap-southeast-1", "ap-northeast-1"]
@@ -62,7 +62,7 @@
                   "Ref" : "WatchdogRegion"
                 }, {
                   "Ref" : "AWS::AccountId"
-                }, "rackspace-support"]]
+                }, "rackspace-support-standard"]]
           }
         ],
         "MetricName" : "Errors",
@@ -103,7 +103,7 @@
                   "Ref" : "WatchdogRegion"
                 }, {
                   "Ref" : "AWS::AccountId"
-                }, "rackspace-support"]]
+                }, "rackspace-support-standard"]]
           }
         ],
         "MetricName" : "Errors",
@@ -144,7 +144,7 @@
                   "Ref" : "WatchdogRegion"
                 }, {
                   "Ref" : "AWS::AccountId"
-                }, "rackspace-support"]]
+                }, "rackspace-support-standard"]]
           }
         ],
         "MetricName" : "Errors",
@@ -185,7 +185,7 @@
                   "Ref" : "WatchdogRegion"
                 }, {
                   "Ref" : "AWS::AccountId"
-                }, "rackspace-support"]]
+                }, "rackspace-support-standard"]]
           }
         ],
         "MetricName" : "Errors",
@@ -226,7 +226,7 @@
                   "Ref" : "WatchdogRegion"
                 }, {
                   "Ref" : "AWS::AccountId"
-                }, "rackspace-support"]]
+                }, "rackspace-support-standard"]]
           }
         ],
         "MetricName" : "Errors",
@@ -267,7 +267,7 @@
                   "Ref" : "WatchdogRegion"
                 }, {
                   "Ref" : "AWS::AccountId"
-                }, "rackspace-support"]]
+                }, "rackspace-support-standard"]]
           }
         ],
         "MetricName" : "Errors",
