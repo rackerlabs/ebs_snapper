@@ -101,12 +101,12 @@ For the input region, loop through every snapshot (ec2-describe-snapshots) with 
 
 ## Replication
 
-Replication is intended to be somewhat independent from the actual process of building and cleaning up snapshots within a single region. Replication is driven by three specific tags on a snapshot: replication_dst_region, replication_src_region, and replication_snapshot_id.
+Replication is intended to be somewhat independent from the actual process of building and cleaning up snapshots within a single region. Replication is driven by three specific tags on a snapshot: replication_dst_region (set by the operator or via CFN), replication_src_region (set automatically by EBS Snapper), and replication_snapshot_id (set automatically by EBS Snapper).
 
- - Tag replication_dst_region should be copied from an instance and/or volume, and specify what region this snapshot be replicated into
- - Tags replication_src_region and replication_snapshot_id specify where a replicated snapshot originally came from
+ - Tag replication_dst_region will be automatically copied from an instance and/or volume, and specify what region this snapshot be replicated into
+ - Tags replication_src_region and replication_snapshot_id will be created & tracked by EBS Snapper and specify where a replicated snapshot originally came from
 
-You *must* set `'replication': 'yes'` on at least one snapshot configuration to instruct EBS Snapper to keep the replication cloudwatch rule enabled, otherwise it will be disabled. EBS Snapper will simply copy snapshots to another region if they don't already exist there, and cleanup copies if they originals don't exist.
+You *must* also set `'replication': 'yes'` on at least one snapshot configuration to instruct EBS Snapper to keep the replication cloudwatch rule enabled, otherwise it will be disabled. EBS Snapper will simply copy snapshots to another region if they don't already exist there, and cleanup copies if they originals don't exist.
 
 
 ## Python modules, project organization
