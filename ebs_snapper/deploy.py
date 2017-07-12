@@ -27,6 +27,7 @@ import logging
 import time
 import hashlib
 import base64
+import os
 
 import boto3
 from botocore.exceptions import ClientError
@@ -101,13 +102,25 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
 
     # upload files to S3 bucket
     LOG.info("Uploading files into S3 bucket")
-    upload_files = ['cloudformation.json', lambda_zip_filename]
-    for filename in upload_files:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    upload_files = {
+        'cloudformation.json': '{}{}cloudformation.json'.format(dir_path, os.path.sep),
+        lambda_zip_filename: '{}{}{}'.format(os.getcwd(), os.path.sep, lambda_zip_filename)
+    }
+
+    for filename, local_path in upload_files.iteritems():
+
+        local_hash = None
+        try:
+            local_hash = md5sum(local_path).strip('"')
+        except:
+            raise
 
         try:
             # check if file in bucket is already there and up to date
             object_summary = s3_client.get_object(Bucket=ebs_bucket_name, Key=filename)
-            local_hash = md5sum(filename).strip('"')
+
             remote_hash = object_summary['ETag'].strip('"')
 
             LOG.debug("Local file MD5 sum: " + local_hash)
@@ -117,10 +130,10 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
                 LOG.info("Skipping upload of %s, already up-to-date in S3", filename)
                 continue
         except:
-            LOG.info("Failed to checksum local file and remote file, uploading it anyway")
+            LOG.info("Failed to checksum remote file %s, uploading it anyway", filename)
 
-        with open(filename, 'rb') as data:
-            LOG.info('Uploading %s to bucket %s', filename, ebs_bucket_name)
+        with open(local_path, 'rb') as data:
+            LOG.info('Uploading %s to bucket %s as %s', local_path, ebs_bucket_name, filename)
             s3_client.put_object(Bucket=ebs_bucket_name, Key=filename, Body=data)
 
     return ebs_bucket_name
@@ -128,12 +141,20 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
 
 def build_package(lambda_zip_filename):
     """Given this project, package it using lambda_uploader"""
-    pkg = lu_package.Package('.', lambda_zip_filename)
+
+    # current path to this source file's dir
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    parent_path_str = '{}{}..'.format(dir_path, os.path.sep)
+    parent_path = os.path.realpath(parent_path_str)
+    project_path = '{}{}{}'.format(os.getcwd(), os.path.sep, lambda_zip_filename)
+
+    pkg = lu_package.Package(parent_path, project_path)
     pkg.clean_zipfile()
 
     # lambda-uploader step to build zip file
-    pkg.extra_file('ebs_snapper/lambdas.py')
-    pkg.requirements('requirements.txt')
+    pkg.extra_file('{}{}lambdas.py'.format(dir_path, os.path.sep))
+    pkg.extra_file('{}{}cloudformation.json'.format(dir_path, os.path.sep))
+    pkg.requirements('{}{}requirements.txt'.format(parent_path, os.path.sep))
     pkg.build(IGNORED_UPLOADER_FILES)
     pkg.clean_workspace()
 
