@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.3
+- Reduce I/O unit reservation for DynamoDB writes, clean up CFN paths (#47)
+
 ## 0.7.2
 
 - Fix a permissions issue with invocation of Lambda functions via CloudWatch (#41)
