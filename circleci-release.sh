@@ -1,18 +1,25 @@
 #!/bin/bash
 
-if ! [ ${CIRCLE_BRANCH} == "master" ]; then
-  echo "Not releasing, this branch is not master"
-  exit 0
-fi
-
 release=$(git describe --always --tags)
 sha=$(echo ${CIRCLE_SHA1} | cut -c1-6)
 bucket=""
 content_type="application/zip"
 date=$(date -R)
 
+# create zip file
 name=ebs_snapper.zip
-ebs-snapper deploy --no_stack --no_upload -a 1234 && mv ${name} ${CIRCLE_ARTIFACTS}/${name}
+echo "Building ${name}"
+pwd
+ebs-snapper deploy --no_stack --no_upload -a 1234
+
+echo "Moving ${name} to CircleCI artifacts directory"
+mv ${name} ${CIRCLE_ARTIFACTS}/${name} || exit 2
+
+if ! [ ${CIRCLE_BRANCH} == "master" ]; then
+  echo "Not releasing, this branch is not master"
+  exit 0
+fi
+
 s3artifact -bucket $AWS_BUCKET -name ${release}/${name} ${CIRCLE_ARTIFACTS}/${name}
 s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 

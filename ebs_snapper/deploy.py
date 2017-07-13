@@ -27,7 +27,6 @@ import logging
 import time
 import hashlib
 import base64
-import os
 
 import boto3
 from botocore.exceptions import ClientError
@@ -102,18 +101,12 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
 
     # upload files to S3 bucket
     LOG.info("Uploading files into S3 bucket")
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-
-    upload_files = {
-        'cloudformation.json': '{}{}cloudformation.json'.format(dir_path, os.path.sep),
-        lambda_zip_filename: '{}{}{}'.format(os.getcwd(), os.path.sep, lambda_zip_filename)
-    }
-
-    for filename, local_path in upload_files.iteritems():
+    upload_files = ['cloudformation.json', lambda_zip_filename]
+    for filename in upload_files:
 
         local_hash = None
         try:
-            local_hash = md5sum(local_path).strip('"')
+            local_hash = md5sum(filename).strip('"')
         except:
             raise
 
@@ -132,8 +125,8 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
         except:
             LOG.info("Failed to checksum remote file %s, uploading it anyway", filename)
 
-        with open(local_path, 'rb') as data:
-            LOG.info('Uploading %s to bucket %s as %s', local_path, ebs_bucket_name, filename)
+        with open(filename, 'rb') as data:
+            LOG.info('Uploading %s to bucket %s', filename, ebs_bucket_name)
             s3_client.put_object(Bucket=ebs_bucket_name, Key=filename, Body=data)
 
     return ebs_bucket_name
@@ -141,20 +134,12 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
 
 def build_package(lambda_zip_filename):
     """Given this project, package it using lambda_uploader"""
-
-    # current path to this source file's dir
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    parent_path_str = '{}{}..'.format(dir_path, os.path.sep)
-    parent_path = os.path.realpath(parent_path_str)
-    project_path = '{}{}{}'.format(os.getcwd(), os.path.sep, lambda_zip_filename)
-
-    pkg = lu_package.Package(parent_path, project_path)
+    pkg = lu_package.Package('.', lambda_zip_filename)
     pkg.clean_zipfile()
 
     # lambda-uploader step to build zip file
-    pkg.extra_file('{}{}lambdas.py'.format(dir_path, os.path.sep))
-    pkg.extra_file('{}{}cloudformation.json'.format(dir_path, os.path.sep))
-    pkg.requirements('{}{}requirements.txt'.format(parent_path, os.path.sep))
+    pkg.extra_file('ebs_snapper/lambdas.py')
+    pkg.requirements('requirements.txt')
     pkg.build(IGNORED_UPLOADER_FILES)
     pkg.clean_workspace()
 
