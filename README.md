@@ -29,9 +29,9 @@ We strongly recommend [using virtualenv](http://docs.python-guide.org/en/latest/
 
 Since this package is not currently in PyPi, it will need to be installed locally: git clone the repo (choose a tag, please!) to your workstation then run these commands from inside the repo's main directory:
 ```
-git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.7.3
+git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.7.4
 cd ebs_snapper
-wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.7.3/ebs_snapper.zip
+wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.7.4/ebs_snapper.zip
 pip install -r requirements.txt
 pip install -e .
 ```

@@ -1,6 +1,11 @@
 # Changelog
 
+## 0.7.4
+
+- Fix issue with releasing on CircleCI, re-release 0.7.3 as 0.7.4
+
 ## 0.7.3
+
 - Reduce I/O unit reservation for DynamoDB writes, clean up CFN paths (#47)
 
 ## 0.7.2
