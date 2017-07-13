@@ -13,7 +13,7 @@ dependencies:
 
 test:
   override:
-    - aws cloudformation validate-template --template-body=file://ebs_snapper/cloudformation.json --region us-east-1
+    - aws cloudformation validate-template --template-body=file://cloudformation.json --region us-east-1
     - tox
   post:
     - ./circleci-release.sh

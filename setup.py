@@ -34,8 +34,5 @@ setup(
         'tox-pyenv',
         'pytest',
         'pytest-mock'
-    ],
-    package_data={
-        'ebs_snapper': ['cloudformation.json'],
-    },
+    ]
 )
