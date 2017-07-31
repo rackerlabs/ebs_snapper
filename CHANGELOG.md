@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0
+
+- Add 'CostCenter' tag feature (#51)
+
 ## 0.7.4
 
 - Fix issue with releasing on CircleCI, re-release 0.7.3 as 0.7.4
