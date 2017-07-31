@@ -191,11 +191,14 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
         response = cf_client.create_stack(
             StackName=stack_name,
             TemplateURL=template_url,
-            Parameters=[{
-                'ParameterKey': 'LambdaS3Bucket',
-                'ParameterValue': ebs_bucket_name,
-                'UsePreviousValue': False
-            }],
+            Parameters=[
+                {'ParameterKey': 'LambdaS3Bucket',
+                 'ParameterValue': ebs_bucket_name,
+                 'UsePreviousValue': False},
+                {'ParameterKey': 'CostCenter',
+                 'ParameterValue': '',
+                 'UsePreviousValue': False}
+            ],
             Capabilities=[
                 'CAPABILITY_IAM',
             ])
@@ -210,11 +213,13 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
             response = cf_client.update_stack(
                 StackName=stack_name,
                 TemplateURL=template_url,
-                Parameters=[{
-                    'ParameterKey': 'LambdaS3Bucket',
-                    'ParameterValue': ebs_bucket_name,
-                    'UsePreviousValue': False
-                }],
+                Parameters=[
+                    {'ParameterKey': 'LambdaS3Bucket',
+                     'ParameterValue': ebs_bucket_name,
+                     'UsePreviousValue': False},
+                    {'ParameterKey': 'CostCenter',
+                     'UsePreviousValue': True}
+                ],
                 Capabilities=[
                     'CAPABILITY_IAM',
                 ])
