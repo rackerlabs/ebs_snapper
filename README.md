@@ -66,7 +66,7 @@ INFO:ebs_snapper.deploy:Published new version for ebs-snapper-112233445566-Creat
 INFO:ebs_snapper.shell:Function shell_deploy completed
 ```
 
-The first time you run deploy, this will only create the stack in CloudFormation. After the first time, run this again to publish new versions of the tool to an account, as new versions are released. The resources generated which include the Lambda functions and S3 bucket are generated in the us-east-1 region (N. Virginia). Please see the section below on the `configure` subcommand of the CLI to learn more about configuring this software after installation.
+The first time you run deploy, this will only create the stack in CloudFormation. After the first time, run this again to publish new versions of the tool to an account, as new versions are released. The resources generated which include the Lambda functions and S3 bucket are generated in the us-east-1 region (N. Virginia) -- even though they talk to, and manage snapshots, in every region. Please see the section below on the `configure` subcommand of the CLI to learn more about configuring this software after installation.
 
 ## How to use the CLI
 
