@@ -178,12 +178,6 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
     # check for stack, create it if necessary
     stack_name = 'ebs-snapper-{}'.format(aws_account)
     cf_client = boto3.client('cloudformation', region_name=region)
-    stack_list_response = cf_client.list_stacks()
-    stack_summaries = stack_list_response.get('StackSummaries', [])
-
-    stack_map = dict()
-    for entry in stack_summaries:
-        stack_map[entry['StackName']] = entry['StackStatus']
 
     template_url = "https://s3.amazonaws.com/{}/cloudformation.json".format(ebs_bucket_name)
     try:
@@ -210,16 +204,29 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
 
         try:
             LOG.info('Stack exists, updating stack from %s', template_url)
+
+            params = [
+                {'ParameterKey': 'LambdaS3Bucket',
+                 'ParameterValue': ebs_bucket_name,
+                 'UsePreviousValue': False}
+            ]
+
+            # we can't specify "UsePreviousValue" if template didn't have this
+            # param before our update. We can only UsePreviousValue if param
+            # is already present in previous version of this template.
+            sn = stack_name
+            sr = cf_client.describe_stacks(StackName=sn)
+            es_stack = [x for x in sr.get('Stacks', []) if x['StackName'] == sn]
+            es_params = [x.get('Parameters', []) for x in es_stack]
+            es_param_keys = [x['ParameterKey'] for x in utils.flatten(es_params)]
+            if 'CostCenter' in es_param_keys:
+                params.append({'ParameterKey': 'CostCenter', 'UsePreviousValue': True})
+            # else we will get the default template value for this param
+
             response = cf_client.update_stack(
                 StackName=stack_name,
                 TemplateURL=template_url,
-                Parameters=[
-                    {'ParameterKey': 'LambdaS3Bucket',
-                     'ParameterValue': ebs_bucket_name,
-                     'UsePreviousValue': False},
-                    {'ParameterKey': 'CostCenter',
-                     'UsePreviousValue': True}
-                ],
+                Parameters=params,
                 Capabilities=[
                     'CAPABILITY_IAM',
                 ])
