@@ -31,6 +31,26 @@
       "Description" : "CostCenter tag value to apply to resources created by this template.",
       "Type": "String",
       "Default" : ""
+    },
+    "LambdaMemoryFanout" : {
+      "Description" : "Memory (in MB) to use for fanout functions.",
+      "Type": "Number",
+      "Default" : "128"
+    },
+    "LambdaMemorySnapshot" : {
+      "Description" : "Memory (in MB) to use for snapshot function.",
+      "Type": "Number",
+      "Default" : "256"
+    },
+    "LambdaMemoryClean" : {
+      "Description" : "Memory (in MB) to use for clean function.",
+      "Type": "Number",
+      "Default" : "256"
+    },
+    "LambdaMemoryReplication" : {
+      "Description" : "Memory (in MB) to use for replication function.",
+      "Type": "Number",
+      "Default" : "256"
     }
   },
   "Conditions": {
@@ -112,7 +132,7 @@
         },
         "Description" : "snapshot and tags main task",
         "Handler" : "lambdas.lambda_fanout_snapshot",
-        "MemorySize" : 128,
+        "MemorySize" : { "Ref": "LambdaMemoryFanout" },
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
         "Timeout" : "300",
@@ -158,7 +178,7 @@
         },
         "Description" : "snapshot and tags main task",
         "Handler" : "lambdas.lambda_fanout_clean",
-        "MemorySize" : 128,
+        "MemorySize" : { "Ref": "LambdaMemoryFanout" },
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
         "Timeout" : "300",
@@ -204,7 +224,7 @@
         },
         "Description" : "snapshot and tags main task",
         "Handler" : "lambdas.lambda_fanout_replication",
-        "MemorySize" : 128,
+        "MemorySize" : { "Ref": "LambdaMemoryFanout" },
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
         "Timeout" : "300",
@@ -250,7 +270,7 @@
         },
         "Description" : "create tags and snapshots task",
         "Handler" : "lambdas.lambda_snapshot",
-        "MemorySize" : 256,
+        "MemorySize" : { "Ref": "LambdaMemorySnapshot" },
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
         "Timeout" : "300",
@@ -296,7 +316,7 @@
         },
         "Description" : "create tags and snapshots task",
         "Handler" : "lambdas.lambda_clean",
-        "MemorySize" : 256,
+        "MemorySize" : { "Ref": "LambdaMemoryClean" },
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
         "Timeout" : "300",
@@ -342,7 +362,7 @@
         },
         "Description" : "snapshot replication task",
         "Handler" : "lambdas.lambda_replication",
-        "MemorySize" : 256,
+        "MemorySize" : { "Ref": "LambdaMemoryReplication" },
         "Role" : { "Fn::GetAtt" : ["LambdaExecutionRole", "Arn"] },
         "Runtime" : "python2.7",
         "Timeout" : "300",
