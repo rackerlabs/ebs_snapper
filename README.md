@@ -1,6 +1,6 @@
 # ebs_snapper
 
-This project allows you to schedule regular EBS snapshots and clean up EBS snapshots on EC2. We make use of IAM, Lambda, CloudFormation, DynamoDB, and EC2.
+This project allows you to schedule regular EBS snapshots and clean up EBS snapshots on EC2, as well as replicate snapshots to a secondary EC2 region. We make use of IAM, Lambda, CloudFormation, DynamoDB, and EC2.
 
 This project is provided under the Apache License, version 2. Pull requests and contributions are always welcome.
 
@@ -70,7 +70,7 @@ The first time you run deploy, this will only create the stack in CloudFormation
 
 ## How to use the CLI
 
-The `ebs-snapper` commandline tool has three subcommands: `snapshot, clean, configure`. For `snapshot` and `clean`, the tool will take any needed snapshots, or clean up any eligible snapshots, respectively, based on the configuration items stored for the AWS account. `configure` is a way for you to interact with the chunks of JSON configuration used by the tool, and has flags for get (`-g / --get`), set (`-s / --set`), delete (`-d / --del`), or list (`-l / --list`). To speed up the configuration subcommand, you can always supply an AWS account ID so that we don't have scan for it, based on EC2 instances and their owners), using (`-a <account id>`).
+The `ebs-snapper` commandline tool has four subcommands: `snapshot, clean, configure, replication`. For `snapshot` and `clean`, the tool will take any needed snapshots, or clean up any eligible snapshots, respectively, based on the configuration items stored for the AWS account. `replication` is used to trigger replication of snapshots from one region to another. `configure` is a way for you to interact with the chunks of JSON configuration used by the tool, and has flags for get (`-g / --get`), set (`-s / --set`), delete (`-d / --del`), or list (`-l / --list`). To speed up the configuration subcommand, you can always supply an AWS account ID so that we don't have scan for it, based on EC2 instances and their owners), using (`-a <account id>`).
 
 Additionally, you may be interested in raising the log level of output using `-V` or `-VV`, e.g.: `ebs-snapper -V <rest of command>`. The logging output generally prints AWS connections established to a specific region, as well as parsing and logic information that could be used to debug or look deeper into the tool's behavior.
 
@@ -187,3 +187,27 @@ INFO:root:Function shell_fanout_clean completed
 As you can see, the `clean` subcommand does something similar to the snapshot one. It identifies all regions with currently running instances, and then dispatches a lambda job to scan that region for snapshots that might be able to be deleted. The actual work of determining what to delete and performing the delete API calls happens in the other lambda job, however when run interactively using the CLI, all of the logic happens directly on the client (no Lambda jobs run).
 
 Specifically for the clean job, a cache is built of much of the needed data to do cleanup, since it's much more efficient to fetch in bulk than to fetch over and over for every single snapshot (and causes less calculations to be repeated).
+
+### Replication command
+```
+ebs-snapper -V replication
+INFO:root:Performing snapshot replication in region us-east-1
+INFO:root:Working on copying this snapshot snap-0daf235945e307e7c (if needed): Created from i-05d0486d6c8b1ae49 by EbsSnapper(0.8.0) for ami-c7c546d1 from vol-0d4be5bde49115a56
+INFO:root:Not creating more snapshots, since snapshot_id snap-0daf235945e307e7c was already found in us-west-2
+INFO:root:Working on copying this snapshot snap-08123b99992aba69d (if needed): Created from i-088e9520113fb4e35 by EbsSnapper(0.8.0) for ami-7250d264 from vol-0217da8a108684fa4
+INFO:root:Not creating more snapshots, since snapshot_id snap-08123b99992aba69d was already found in us-west-2
+INFO:root:Working on copying this snapshot snap-08bb5aff7b2ccef49 (if needed): Created from i-05b64394cd94260f4 by EbsSnapper(0.8.0) for ami-7250d264 from vol-0349099862e322830
+INFO:root:Not creating more snapshots, since snapshot_id snap-08bb5aff7b2ccef49 was already found in us-west-2
+INFO:root:Working on copying this snapshot snap-06476a1fdf283c0e0 (if needed): Created from i-05b64394cd94260f4 by EbsSnapper(0.8.0) for ami-7250d264 from vol-029e224bfe6c74001
+INFO:root:Not creating more snapshots, since snapshot_id snap-0e30eba44dc55832e was already found in us-west-2
+WARNING:root:Lambda/Less than 1m remaining in function (59725ms): perform_replication
+INFO:root:Performing snapshot replication in region us-west-1
+WARNING:root:Lambda/Less than 1m remaining in function (50984ms): perform_replication
+WARNING:root:Lambda/Less than 1m remaining in function (49823ms): perform_replication
+INFO:root:Performing snapshot replication in region us-west-2
+WARNING:root:Lambda/Less than 1m remaining in function (0ms): perform_replication
+WARNING:root:Lambda/Less than 1m remaining in function (0ms): perform_replication
+INFO:root:Function shell_fanout_snapshot_replication completed
+```
+
+Note that replication is scheduled using CloudWatch events by the snapshot job to enable or disable a separate replication event, and relies on special tags as described in [DESIGN.md][/DESIGN.md] in the "Replication" section.

@@ -47,6 +47,26 @@ STACK_FATAL_STATUS = ['CREATE_FAILED', 'ROLLBACK_IN_PROGRESS',
 STACK_SUCCESS_STATUS = ['CREATE_COMPLETE', 'UPDATE_COMPLETE']
 IGNORED_UPLOADER_FILES = ["circle.yml", ".git", "/*.pyc", "\\.cache",
                           "\\.json$", "\\.sh$", "\\.zip$"]
+DEFAULT_STACK_PARAMS = [
+    {'ParameterKey': 'WatchdogRegion',
+     'ParameterValue': 'us-east-1', 'UsePreviousValue': False},
+    {'ParameterKey': 'CreateScheduleExpression',
+     'ParameterValue': 'rate(30 minutes)', 'UsePreviousValue': False},
+    {'ParameterKey': 'CleanScheduleExpression',
+     'ParameterValue': 'rate(6 hours)', 'UsePreviousValue': False},
+    {'ParameterKey': 'ReplicationScheduleExpression',
+     'ParameterValue': 'rate(30 minutes)', 'UsePreviousValue': False},
+    {'ParameterKey': 'CostCenter',
+     'ParameterValue': '', 'UsePreviousValue': False},
+    {'ParameterKey': 'LambdaMemoryFanout',
+     'ParameterValue': '128', 'UsePreviousValue': False},
+    {'ParameterKey': 'LambdaMemorySnapshot',
+     'ParameterValue': '256', 'UsePreviousValue': False},
+    {'ParameterKey': 'LambdaMemoryClean',
+     'ParameterValue': '256', 'UsePreviousValue': False},
+    {'ParameterKey': 'LambdaMemoryReplication',
+     'ParameterValue': '256', 'UsePreviousValue': False}
+]
 
 
 def deploy(context, aws_account_id=None, no_build=None, no_upload=None, no_stack=None):
@@ -182,17 +202,15 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
     template_url = "https://s3.amazonaws.com/{}/cloudformation.json".format(ebs_bucket_name)
     try:
         LOG.info('Creating stack from %s', template_url)
+        # only required parameter
+        DEFAULT_STACK_PARAMS.append({
+            'ParameterKey': 'LambdaS3Bucket',
+            'ParameterValue': ebs_bucket_name,
+            'UsePreviousValue': False})
         response = cf_client.create_stack(
             StackName=stack_name,
             TemplateURL=template_url,
-            Parameters=[
-                {'ParameterKey': 'LambdaS3Bucket',
-                 'ParameterValue': ebs_bucket_name,
-                 'UsePreviousValue': False},
-                {'ParameterKey': 'CostCenter',
-                 'ParameterValue': '',
-                 'UsePreviousValue': False}
-            ],
+            Parameters=DEFAULT_STACK_PARAMS,
             Capabilities=[
                 'CAPABILITY_IAM',
             ])
@@ -205,12 +223,6 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
         try:
             LOG.info('Stack exists, updating stack from %s', template_url)
 
-            params = [
-                {'ParameterKey': 'LambdaS3Bucket',
-                 'ParameterValue': ebs_bucket_name,
-                 'UsePreviousValue': False}
-            ]
-
             # we can't specify "UsePreviousValue" if template didn't have this
             # param before our update. We can only UsePreviousValue if param
             # is already present in previous version of this template.
@@ -219,9 +231,11 @@ def create_or_update_stack(aws_account, region, ebs_bucket_name):
             es_stack = [x for x in sr.get('Stacks', []) if x['StackName'] == sn]
             es_params = [x.get('Parameters', []) for x in es_stack]
             es_param_keys = [x['ParameterKey'] for x in utils.flatten(es_params)]
-            if 'CostCenter' in es_param_keys:
-                params.append({'ParameterKey': 'CostCenter', 'UsePreviousValue': True})
+
             # else we will get the default template value for this param
+            params = []
+            for k in es_param_keys:
+                params.append({'ParameterKey': k, 'UsePreviousValue': True})
 
             response = cf_client.update_stack(
                 StackName=stack_name,
