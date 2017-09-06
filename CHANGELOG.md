@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1
+
+- Add parameters to CloudFormation for all of the memory sizes of Lambda jobs (#58)
+- Modify deploy command to preserve all existing parameter values, when they're present (#58)
+- Now that it's supported by Watchman, add OK actions to our alarms (#55)
+- Add more references to the replication feature in ebs-snapper (#54)
+
 ## 0.8.0
 
 - Add 'CostCenter' tag feature (#51)
