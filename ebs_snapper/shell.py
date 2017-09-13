@@ -111,6 +111,9 @@ def main(arv=None):
 
     # what action for configure?
     action_group = parser_configure.add_mutually_exclusive_group(required=True)
+    action_group.add_argument('-c', '--check', dest='conf_action', action='store_const',
+                              const='check',
+                              help="Sanity check for poorly configured backups")
     action_group.add_argument('-l', '--list', dest='conf_action', action='store_const',
                               const='list',
                               help="List configuration items")
@@ -127,6 +130,7 @@ def main(arv=None):
 
     # configure parameters
     parser_configure.add_argument('-a', '--aws_account_id', nargs='?', default=None)
+    parser_configure.add_argument('-e', '--extra', nargs='?', default=None)
     parser_configure.add_argument('object_id', nargs='?', default=None)
     parser_configure.add_argument('configuration_json', nargs='?', default=None)
 
@@ -198,8 +202,24 @@ def shell_configure(*args):
     object_id = args[0].object_id
     action = args[0].conf_action
     installed_region = args[0].conf_toolregion
+    extra = args[0].extra
 
-    if action == 'list':
+    if action == 'check':
+        LOG.debug('Sanity checking configurations for %s', aws_account_id)
+        findings = deploy.sanity_check(
+            CTX,
+            installed_region,
+            aws_account_id=aws_account_id) or []
+
+        if extra:
+            prefix = '{},{}'.format(extra, aws_account_id)
+        else:
+            prefix = '{}'.format(aws_account_id)
+
+        for f in findings:
+            print("{}: {}".format(prefix, f))
+
+    elif action == 'list':
         LOG.info('Listing all object keys for %s', aws_account_id)
         list_results = dynamo.list_ids(
             CTX,

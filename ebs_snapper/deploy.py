@@ -33,7 +33,7 @@ from botocore.exceptions import ClientError
 from lambda_uploader import package as lu_package
 
 import ebs_snapper
-from ebs_snapper import utils
+from ebs_snapper import utils, dynamo
 
 LOG = logging.getLogger()
 DEFAULT_REGION = 'us-east-1'
@@ -345,6 +345,135 @@ def update_function_and_version(ebs_bucket_name, lambda_zip_filename):
         )
         LOG.info("Published new version for %s: %s",
                  function_name, publish_response['ResponseMetadata'])
+
+
+def sanity_check(context, installed_region='us-east-1', aws_account_id=None):
+    """Retrieve configuration from DynamoDB and return array of dictionary objects"""
+    findings = []
+
+    # determine aws account id
+    if aws_account_id is None:
+        found_owners = utils.get_owner_id(context)
+    else:
+        found_owners = [aws_account_id]
+
+    if len(found_owners) <= 0:
+        findings.append(
+            'There are no instances I could find on this account. ' +
+            'Cannot figure out the account number without any instances. ' +
+            'Without account number, cannot figure out what to name the S3 bucket or stack.'
+        )
+        return findings
+    else:
+        aws_account = found_owners[0]
+
+    # The bucket does not exist or you have no access
+    bucket_exists = None
+    try:
+        s3_client = boto3.client('s3', region_name=installed_region)
+        ebs_bucket_name = 'ebs-snapper-{}'.format(aws_account)
+        s3_client.head_bucket(Bucket=ebs_bucket_name)
+        bucket_exists = True
+    except ClientError:
+        bucket_exists = False
+
+    # Configurations exist but tags do not
+    configurations = []
+    dynamodb_exists = None
+    try:
+        configurations = dynamo.list_configurations(context, installed_region)
+        dynamodb_exists = True
+    except ClientError:
+        configurations = []
+        dynamodb_exists = False
+
+    # we're going across all regions, but store these in one
+    regions = utils.get_regions(must_contain_instances=True)
+    ignored_tag_values = ['false', '0', 'no']
+    found_config_tag_values = []
+    found_backup_tag_values = []
+
+    # check out all the configs in dynamodb
+    for config in configurations:
+        # if it's missing the match section, ignore it
+        if not utils.validate_snapshot_settings(config):
+            findings.append(
+                "Found a snapshot configuration that isn't valid: {}".format(str(config)))
+            continue
+
+        # build a boto3 filter to describe instances with
+        configuration_matches = config['match']
+        filters = utils.convert_configurations_to_boto_filter(configuration_matches)
+        for k, v in configuration_matches.iteritems():
+
+            if str(v).lower() in ignored_tag_values:
+                continue
+
+            to_add = '{}, value:{}'.format(k, v)
+            found_config_tag_values.append(to_add)
+
+        # if we ended up with no boto3 filters, we bail so we don't snapshot everything
+        if len(filters) <= 0:
+            LOG.warn('Could not convert configuration match to a filter: %s',
+                     configuration_matches)
+            findings.append("Found a snapshot configuration that couldn't be converted to a filter")
+            continue
+
+        filters.append({'Name': 'instance-state-name',
+                        'Values': ['running', 'stopped']})
+
+        found_instances = None
+        for r in regions:
+            ec2 = boto3.client('ec2', region_name=r)
+            instances = ec2.describe_instances(Filters=filters)
+            res_list = instances.get('Reservations', [])
+
+            for reservation in res_list:
+                inst_list = reservation.get('Instances', [])
+
+                if len(inst_list) > 0:
+                    found_instances = True
+                    break
+
+            # Look at all the tags on instances
+            found_tag_data = ec2.describe_tags(
+                Filters=[{'Name': 'resource-type', 'Values': ['instance']}]
+            )
+
+            for tag in found_tag_data.get('Tags', []):
+                k = tag['Key']
+                v = tag['Value']
+
+                if str(v).lower() in ignored_tag_values:
+                    continue
+
+                to_add = 'tag:{}, value:{}'.format(k, v)
+                if k.lower() in ['backup'] and to_add not in found_backup_tag_values:
+                    found_backup_tag_values.append(to_add)
+
+        if not found_instances:
+            long_config = []
+            for k, v in configuration_matches.iteritems():
+                long_config.append('{}, value:{}'.format(k, v))
+            findings.append(
+                "{} was configured, but didn't match any instances".format(", ".join(long_config)))
+
+    if len(found_backup_tag_values) > 0 or len(found_config_tag_values) > 0:
+        if not (bucket_exists and dynamodb_exists):
+            findings.append('Configuations or tags are present, but EBS snapper not fully deployed')
+
+    if bucket_exists and dynamodb_exists and len(configurations) == 0:
+        findings.append('No configurations existed for this account, but ebs-snapper was deployed')
+
+    # tagged instances without any config
+    for s in found_backup_tag_values:
+        if s not in found_config_tag_values:
+            findings.append('{} was tagged on an instance, but no configuration exists'.format(s))
+
+    LOG.debug("configs: " + str(found_config_tag_values))
+    LOG.debug("tags: " + str(found_backup_tag_values))
+
+    return findings
 
 
 def md5sum(fname):
