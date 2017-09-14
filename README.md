@@ -100,6 +100,8 @@ JSON configuration stanzas live in DynamoDB, and use a compound key `id, aws_acc
 
 #### Examples
 
+### Configure command
+
 List existing configurations stored for this account (will also output the aws_account_id):
 
 ```
@@ -138,6 +140,15 @@ $ ebs-snapper configure -d -a 112233445566 daily_tagged
 $ ebs-snapper configure -l -a 112233445566
 aws_account_id,id
 112233445566,tagged_instances
+```
+
+We also provide an easy way to sanity check configurations:
+```
+$ ebs-snapper configure -c -a 112233445566
+112233445566: No configurations existed for this account, but ebs-snapper was deployed
+112233445566: tag:Backup, value:5 was configured, but didn't match any instances
+112233445566: tag:Backup, value:30 was configured, but didn't match any instances
+112233445566: tag:Backup, value:10 was configured, but didn't match any instances
 ```
 
 ### Snapshot command
