@@ -221,4 +221,4 @@ WARNING:root:Lambda/Less than 1m remaining in function (0ms): perform_replicatio
 INFO:root:Function shell_fanout_snapshot_replication completed
 ```
 
-Note that replication is scheduled using CloudWatch events by the snapshot job to enable or disable a separate replication event, and relies on special tags as described in [DESIGN.md][/DESIGN.md] in the "Replication" section.
+Note that replication is scheduled using CloudWatch events by the snapshot job to enable or disable a separate replication event, and relies on special tags as described in [DESIGN.md](/DESIGN.md) in the "Replication" section.
