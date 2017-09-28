@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+
+- Introduce a sanity check feature (#62)
+
 ## 0.8.1
 
 - Add parameters to CloudFormation for all of the memory sizes of Lambda jobs (#58)
