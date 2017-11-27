@@ -24,6 +24,7 @@
 from __future__ import print_function
 import logging
 import collections
+import os
 import random
 import datetime
 from datetime import timedelta
@@ -49,6 +50,15 @@ AWS_TAGS = [
 ]
 SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
+
+
+def configure_logging(context, logger, level=logging.INFO, boto_level=logging.WARNING):
+    """Configure default logging"""
+
+    logging.basicConfig(level=os.environ.get('LOG_LEVEL', level))
+    logger.setLevel(os.environ.get('LOG_LEVEL', level))
+    logging.getLogger('botocore').setLevel(os.environ.get('LOG_LEVEL_BOTO', boto_level))
+    logging.getLogger('boto3').setLevel(os.environ.get('LOG_LEVEL_BOTO', boto_level))
 
 
 def get_owner_id(context, region=None):

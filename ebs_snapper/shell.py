@@ -138,12 +138,8 @@ def main(arv=None):
     try:
         args = parser.parse_args()
 
-        # make sure boto stays quiet
-        logging.getLogger('botocore').setLevel(logging.WARNING)
-        logging.getLogger('boto3').setLevel(logging.WARNING)
-
-        logging.basicConfig(level=args.loglevel)
-        LOG.setLevel(args.loglevel)
+        # baseline logging for shell, ensure boto stays quiet
+        utils.configure_logging(CTX, LOG, args.loglevel)
 
         args.func(args)
     except Exception:  # pylint: disable=broad-except
