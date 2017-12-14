@@ -25,7 +25,7 @@ from __future__ import print_function
 
 import json
 import logging
-from ebs_snapper import snapshot, clean, replication
+from ebs_snapper import snapshot, clean, replication, utils
 
 LOG = logging.getLogger()
 
