@@ -55,10 +55,10 @@ ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.No
 def configure_logging(context, logger, level=logging.INFO, boto_level=logging.WARNING):
     """Configure default logging"""
 
-    logging.basicConfig(level=os.environ.get('LOG_LEVEL', level))
-    logger.setLevel(os.environ.get('LOG_LEVEL', level))
-    logging.getLogger('botocore').setLevel(os.environ.get('LOG_LEVEL_BOTO', boto_level))
-    logging.getLogger('boto3').setLevel(os.environ.get('LOG_LEVEL_BOTO', boto_level))
+    logging.basicConfig(level=int(os.environ.get('LOG_LEVEL', level)))
+    logger.setLevel(int(os.environ.get('LOG_LEVEL', level)))
+    logging.getLogger('botocore').setLevel(int(os.environ.get('LOG_LEVEL_BOTO', boto_level)))
+    logging.getLogger('boto3').setLevel(int(os.environ.get('LOG_LEVEL_BOTO', boto_level)))
 
 
 def get_owner_id(context, region=None):
