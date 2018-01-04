@@ -98,8 +98,8 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
     params = {'Filters': filters}
 
     # paginate the snapshot list
-    tag_paginator = ec2.get_paginator('describe_snapshots')
-    for page in tag_paginator.paginate(**params):
+    tag_paginator = utils.build_snapshot_paginator(params, region)
+    for page in tag_paginator:
         # stop if we're running out of time
         if timeout_check(context, 'clean_snapshot'):
             break

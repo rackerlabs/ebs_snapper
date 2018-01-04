@@ -294,7 +294,11 @@ def most_recent_snapshot(volume_id, region):
     """find and return the most recent snapshot"""
     recent = {}
 
-    page_iterator = build_snapshot_paginator([volume_id], region)
+    params = {'Filters': [
+        {'Name': 'volume-id', 'Values': [volume_id]}
+    ]}
+
+    page_iterator = build_snapshot_paginator(params, region)
     for page in page_iterator:
         for s in page['Snapshots']:
             if recent == {} or recent['StartTime'] < s['StartTime']:
@@ -310,7 +314,11 @@ def get_snapshots_by_volume(volume_id, region):
     """Return snapshots by volume and region"""
     snapshot_list = []
 
-    page_iterator = build_snapshot_paginator([volume_id], region)
+    params = {'Filters': [
+        {'Name': 'volume-id', 'Values': [volume_id]}
+    ]}
+
+    page_iterator = build_snapshot_paginator(params, region)
     for page in page_iterator:
         for s in page['Snapshots']:
             snapshot_list.append(s)
@@ -322,7 +330,11 @@ def get_snapshots_by_volumes(volume_list, region):
     """Return snapshots by volume and region"""
     snapshot_list = []
 
-    page_iterator = build_snapshot_paginator(volume_list, region)
+    params = {'Filters': [
+        {'Name': 'volume-id', 'Values': volume_list}
+    ]}
+
+    page_iterator = build_snapshot_paginator(params, region)
     for page in page_iterator:
         for s in page['Snapshots']:
             snapshot_list.append(s)
@@ -330,16 +342,13 @@ def get_snapshots_by_volumes(volume_list, region):
     return snapshot_list
 
 
-def build_snapshot_paginator(volume_list, region):
+def build_snapshot_paginator(params, region):
     """Utility function to make pagination of snapshots easier"""
     ec2 = boto3.client('ec2', region_name=region)
 
     paginator = ec2.get_paginator('describe_snapshots')
-    operation_parameters = {'Filters': [
-        {'Name': 'volume-id', 'Values': volume_list}
-    ]}
     sleep(1)  # help w/ API limits
-    return paginator.paginate(**operation_parameters)
+    return paginator.paginate(**params)
 
 
 def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, additional_tags=None):
@@ -666,11 +675,10 @@ def chunk_volume_work(region, volume_list):
     session = boto3.session.Session(region_name=region)
     ec2 = session.client('ec2')
 
-    paginator = ec2.get_paginator('describe_snapshots')
-    operation_parameters = {'Filters': [
+    params = {'Filters': [
         {'Name': 'volume-id', 'Values': volume_list}
     ]}
-    page_iterator = paginator.paginate(**operation_parameters)
+    page_iterator = build_snapshot_paginator(params, region)
 
     for page in page_iterator:
         for snap in page['Snapshots']:
@@ -708,13 +716,13 @@ def build_replication_cache(context, tags, configurations, region, installed_reg
     for tag in tags:
         found_snapshots[tag] = []
 
-        paginator = ec2.get_paginator('describe_snapshots')
-        operation_parameters = {
+        params = {
             'Filters': [{'Name': 'tag-key', 'Values': [tag]}],
             'OwnerIds': region_owner_ids,
         }
-        sleep(1)  # help w/ API limits
-        for page in paginator.paginate(**operation_parameters):
+        paginator = build_snapshot_paginator(params, region)
+
+        for page in paginator:
             if timeout_check(context, 'perform_replication'):
                 break
 
