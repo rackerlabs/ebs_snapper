@@ -346,6 +346,8 @@ def build_snapshot_paginator(params, region):
     """Utility function to make pagination of snapshots easier"""
     ec2 = boto3.client('ec2', region_name=region)
 
+    params['PaginationConfig'] = {'PageSize': 100}
+
     paginator = ec2.get_paginator('describe_snapshots')
     sleep(1)  # help w/ API limits
     return paginator.paginate(**params)
