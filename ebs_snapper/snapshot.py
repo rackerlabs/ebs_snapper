@@ -101,6 +101,9 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
     # build a list of any IDs (anywhere) that we should ignore
     ignore_ids = utils.build_ignore_list(configurations)
 
+    # build a list of any IDs (anywhere) that we should take snapshots for
+    only_ids = utils.build_only_list(configurations)
+
     # setup some lookup tables
     cache_data = utils.build_cache_maps(context, configurations, region, installed_region)
     all_instances = cache_data['instance_id_to_data']
@@ -138,6 +141,10 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
 
             if volume_id in ignore_ids:
                 continue
+
+            if only_ids:
+                if volume_id not in only_ids:
+                    continue
 
             # find snapshots
             recent = volume_snap_recent.get(volume_id)

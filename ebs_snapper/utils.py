@@ -131,6 +131,18 @@ def build_ignore_list(configurations):
 
     return ignore_ids
 
+def build_only_list(configurations):
+    """Given a bunch of configs, build a list of ids to only take snapshots for"""
+    only_ids = []
+    for config in configurations:
+        # if it's missing the match section, ignore it
+        if not validate_snapshot_settings(config):
+            continue
+
+        onlyed = config.get('onlyvols', [])
+        only_ids.extend(onlyed)
+
+    return only_ids
 
 def ignore_retention_enabled(configurations):
     """Given a bunch of configs, check for special 'ignore retention' flag"""

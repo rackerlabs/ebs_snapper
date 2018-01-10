@@ -94,7 +94,8 @@ JSON configuration stanzas live in DynamoDB, and use a compound key `id, aws_acc
     "minimum": 5,
     "frequency": "12 hours"
   },
-  "ignore": []
+  "ignore": [],
+  "onlyvols": []
 }
 ```
 
@@ -132,6 +133,28 @@ aws_account_id,id
 112233445566,tagged_instances
 112233445566,daily_tagged
 ```
+
+Let's modify the previous one to add the ignore feature:
+```
+$ ebs-snapper configure -s -a 112233445566 daily_tagged '{"snapshot": {"minimum": 5, "frequency": "1 day", "retention": "5 days"}, "match": {"tag:backup": "daily"}, "ignore": ["vol-000b218591ef2f123", "i-AAAAA999" ]}'
+Saved to key daily_tagged under account 112233445566
+$ ebs-snapper configure -l
+aws_account_id,id
+112233445566,tagged_instances
+112233445566,daily_tagged
+```
+
+Now, let's modify the same one to add the onlyvols feature:
+```
+$ ebs-snapper configure -s -a 112233445566 daily_tagged '{"snapshot": {"minimum": 5, "frequency": "1 day", "retention": "5 days"}, "match": {"tag:backup": "daily"}, "onlyvols": ["vol-000b218591ef2f123"]}'
+Saved to key daily_tagged under account 112233445566
+$ ebs-snapper configure -l
+aws_account_id,id
+112233445566,tagged_instances
+112233445566,daily_tagged
+```
+Note: Keep in mind that if you use the ignore feature the instances or EBS volumes will be ignored for all configs and not only where they were defined.
+      In the case of onlyvols feature, once you use it in a config, then you will need to indicate all EBS volume ids to take snapshots from on all configs.
 
 And finally, let's delete the new one, and list again:
 ```
