@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.0
+
+- More logging and smaller pagination (#69)
+
 ## 0.9.0
 
 - Introduce a sanity check feature (#62)
