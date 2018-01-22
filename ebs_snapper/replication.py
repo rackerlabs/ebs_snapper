@@ -130,7 +130,7 @@ def perform_replication(context, region, installed_region='us-east-1'):
 
         num_found = len(found_originals.get('Snapshots', []))
         if num_found > 0:
-            LOG.info('Not removing this snapshot '+snapshot_id+' from '+region +
+            LOG.info('Not removing this snapshot ' + snapshot_id + ' from ' + region +
                      ' since snapshot_id ' + snapshotid_tag_value +
                      ' was already found in ' + region_tag_value)
             continue

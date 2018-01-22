@@ -221,7 +221,7 @@ def test_should_perform_snapshot():
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
         recent=datetime.datetime(2016, 7, 24, 01, 05)  # 2016-07-24 at 1:05 UTC
-        ) is False
+    ) is False
 
     # it's been a week! snap it!
     assert snapshot.should_perform_snapshot(
@@ -229,7 +229,7 @@ def test_should_perform_snapshot():
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
         recent=datetime.datetime(2016, 7, 17, 01, 05)  # 2016-07-17 at 1:05 UTC
-        )
+    )
 
     # it's been forever, and we snap it hourly!
     assert snapshot.should_perform_snapshot(
@@ -237,7 +237,7 @@ def test_should_perform_snapshot():
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
         recent=datetime.datetime(2016, 7, 17, 01, 05)  # 2016-07-17 at 1:05 UTC
-        )
+    )
 
     # it's been ten minutes, and we only snap it hourly -- stop it!
     assert snapshot.should_perform_snapshot(
@@ -245,7 +245,7 @@ def test_should_perform_snapshot():
         datetime.datetime(2016, 7, 24, 02, 05),  # 2016-07-24 at 2:05 UTC
         'volume-foo',
         recent=datetime.datetime(2016, 7, 24, 02, 35)  # 2016-07-24 at 2:35 UTC
-        ) is False
+    ) is False
 
 
 @mock_ec2

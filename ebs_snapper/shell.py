@@ -42,7 +42,7 @@ def main(arv=None):
         raise RuntimeError('ebs-snapper requires Python 2.7')
 
     # allow 15m for the cli, instead of lambda's 5
-    CTX.set_remaining_time_in_millis(60000*15)
+    CTX.set_remaining_time_in_millis(60000 * 15)
 
     parser = argparse.ArgumentParser(
         version=('version %s' % ebs_snapper.__version__),
@@ -180,7 +180,7 @@ def shell_deploy(*args):
         no_build=args[0].no_build,
         no_upload=args[0].no_upload,
         no_stack=args[0].no_stack
-        )
+    )
 
     LOG.info('Function shell_deploy completed')
 

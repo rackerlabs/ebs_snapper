@@ -280,12 +280,12 @@ def get_instance(instance_id, region):
     ec2 = boto3.client('ec2', region_name=region)
     instance_data = ec2.describe_instances(InstanceIds=[instance_id])
     if 'Reservations' not in instance_data:
-        raise Exception('Response missing reservations %s'.format(instance_data))
+        raise Exception('Response missing reservations {}'.format(instance_data))
 
     reservations = instance_data['Reservations']
     instances = sum([[i for i in r['Instances']] for r in reservations], [])
     if not len(instances) == 1:
-        raise Exception('Found too many instances for this id %s'.format(instances))
+        raise Exception('Found too many instances for this id {}'.format(instances))
 
     return instances[0]
 
@@ -438,11 +438,11 @@ def get_volume(volume_id, region):
     ec2 = boto3.client('ec2', region_name=region)
     volume_data = ec2.describe_volumes(VolumeIds=[volume_id])
     if 'Volumes' not in volume_data:
-        raise Exception('Response missing volumes %s'.format(volume_data))
+        raise Exception('Response missing volumes {}'.format(volume_data))
 
     volumes = volume_data['Volumes']
     if not len(volumes) == 1:
-        raise Exception('Found too many volumes for this id %s'.format(volumes))
+        raise Exception('Found too many volumes for this id {}'.format(volumes))
 
     return volumes[0]
 
@@ -819,7 +819,7 @@ class NonLambdaContext(object):
     @staticmethod
     def timedelta_milliseconds(td):
         """return milliseconds from a timedelta"""
-        return td.days*86400000 + td.seconds*1000 + td.microseconds/1000
+        return (td.days * 86400000) + (td.seconds * 1000) + (td.microseconds / 1000)
 
 
 class ShellContext(NonLambdaContext):
