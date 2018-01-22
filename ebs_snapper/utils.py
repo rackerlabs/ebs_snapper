@@ -280,12 +280,12 @@ def get_instance(instance_id, region):
     ec2 = boto3.client('ec2', region_name=region)
     instance_data = ec2.describe_instances(InstanceIds=[instance_id])
     if 'Reservations' not in instance_data:
-        raise Exception('Response missing reservations %s', instance_data)
+        raise Exception('Response missing reservations %s'.format(instance_data))
 
     reservations = instance_data['Reservations']
     instances = sum([[i for i in r['Instances']] for r in reservations], [])
     if not len(instances) == 1:
-        raise Exception('Found too many instances for this id %s', instances)
+        raise Exception('Found too many instances for this id %s'.format(instances))
 
     return instances[0]
 
@@ -438,11 +438,11 @@ def get_volume(volume_id, region):
     ec2 = boto3.client('ec2', region_name=region)
     volume_data = ec2.describe_volumes(VolumeIds=[volume_id])
     if 'Volumes' not in volume_data:
-        raise Exception('Response missing volumes %s', volume_data)
+        raise Exception('Response missing volumes %s'.format(volume_data))
 
     volumes = volume_data['Volumes']
     if not len(volumes) == 1:
-        raise Exception('Found too many volumes for this id %s', volumes)
+        raise Exception('Found too many volumes for this id %s'.format(volumes))
 
     return volumes[0]
 
@@ -674,9 +674,6 @@ def chunk_volume_work(region, volume_list):
     snapshot_id_to_data = {}
     LOG.debug("Pulling snapshots for: %s", str(volume_list))
 
-    session = boto3.session.Session(region_name=region)
-    ec2 = session.client('ec2')
-
     params = {'Filters': [
         {'Name': 'volume-id', 'Values': volume_list}
     ]}
@@ -713,7 +710,6 @@ def build_replication_cache(context, tags, configurations, region, installed_reg
     # all replication-related snapshots will have one or the other of these tags
     found_snapshots = {}
 
-    ec2 = boto3.client('ec2', region_name=region)
     region_owner_ids = get_owner_id(region)
     for tag in tags:
         found_snapshots[tag] = []
