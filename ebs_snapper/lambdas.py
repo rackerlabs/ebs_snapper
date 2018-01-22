@@ -25,7 +25,7 @@ from __future__ import print_function
 
 import json
 import logging
-from ebs_snapper import snapshot, clean, replication
+from ebs_snapper import snapshot, clean, replication, utils
 
 LOG = logging.getLogger()
 
@@ -34,10 +34,7 @@ def lambda_fanout_snapshot(event, context):
     """Fanout SNS messages to trigger snapshots when called by AWS Lambda."""
 
     # baseline logging for lambda
-    logging.basicConfig(level=logging.INFO)
-    LOG.setLevel(logging.INFO)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('boto3').setLevel(logging.WARNING)
+    utils.configure_logging(context, LOG)
 
     # for every region and every instance, send to this function
     snapshot.perform_fanout_all_regions(context)
@@ -49,10 +46,7 @@ def lambda_fanout_clean(event, context):
     """Fanout SNS messages to cleanup snapshots when called by AWS Lambda."""
 
     # baseline logging for lambda
-    logging.basicConfig(level=logging.INFO)
-    LOG.setLevel(logging.INFO)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('boto3').setLevel(logging.WARNING)
+    utils.configure_logging(context, LOG)
 
     # for every region, send to this function
     clean.perform_fanout_all_regions(context)
@@ -64,10 +58,7 @@ def lambda_fanout_replication(event, context):
     """Fanout SNS messages to replicate snapshots when called by AWS Lambda."""
 
     # baseline logging for lambda
-    logging.basicConfig(level=logging.INFO)
-    LOG.setLevel(logging.INFO)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('boto3').setLevel(logging.WARNING)
+    utils.configure_logging(context, LOG)
 
     # for every region, send to this function
     replication.perform_fanout_all_regions(context)
@@ -79,10 +70,7 @@ def lambda_snapshot(event, context):
     """Snapshot a single instance when called by AWS Lambda."""
 
     # baseline logging for lambda
-    logging.basicConfig(level=logging.INFO)
-    LOG.setLevel(logging.INFO)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('boto3').setLevel(logging.WARNING)
+    utils.configure_logging(context, LOG)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_snapshot must be invoked from an SNS topic: %s', str(event))
@@ -118,10 +106,7 @@ def lambda_clean(event, context):
     """Clean up a single region when called by AWS Lambda."""
 
     # baseline logging for lambda
-    logging.basicConfig(level=logging.INFO)
-    LOG.setLevel(logging.INFO)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('boto3').setLevel(logging.WARNING)
+    utils.configure_logging(context, LOG)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_clean must be invoked from an SNS topic')
@@ -155,10 +140,7 @@ def lambda_replication(event, context):
     """Perform replication in a single region when called by AWS Lambda."""
 
     # baseline logging for lambda
-    logging.basicConfig(level=logging.INFO)
-    LOG.setLevel(logging.INFO)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('boto3').setLevel(logging.WARNING)
+    utils.configure_logging(context, LOG)
 
     if not (event and event.get('Records')):
         LOG.warn('lambda_replication must be invoked from an SNS topic')

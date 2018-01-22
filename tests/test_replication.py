@@ -52,7 +52,7 @@ def test_perform_fanout_all_regions_replication(mocker):
     snapshot_map = {}
     for dummy_region in dummy_regions:
         client = boto3.client('ec2', region_name=dummy_region)
-        volume = client.create_volume(Size=100, AvailabilityZone=dummy_region+"a")
+        volume = client.create_volume(Size=100, AvailabilityZone=dummy_region + "a")
         snapshot = client.create_snapshot(VolumeId=volume['VolumeId'])
         snapshot_map[snapshot['SnapshotId']] = dummy_region
 
@@ -94,12 +94,12 @@ def test_perform_replication(mocker):
     client_b = boto3.client('ec2', region_name=region_b)
 
     # create a volume in region_a
-    volume = client_a.create_volume(Size=100, AvailabilityZone=region_a+"a")
+    volume = client_a.create_volume(Size=100, AvailabilityZone=region_a + "a")
     snapshot_description = "Something from EBS Snapper"
     snapshot = client_a.create_snapshot(
         VolumeId=volume['VolumeId'],
         Description=snapshot_description
-        )
+    )
     client_a.create_tags(
         Resources=[snapshot['SnapshotId']],
         Tags=[{'Key': 'replication_dst_region', 'Value': region_b}]
@@ -116,12 +116,12 @@ def test_perform_replication(mocker):
         snapshot_description)
 
     # now create that snapshot manually
-    replica_volume = client_b.create_volume(Size=100, AvailabilityZone=region_b+"a")
+    replica_volume = client_b.create_volume(Size=100, AvailabilityZone=region_b + "a")
     replica_snapshot_description = "Something from EBS Snapper, copied to region b"
     replica_snapshot = client_b.create_snapshot(
         VolumeId=replica_volume['VolumeId'],
         Description=replica_snapshot_description
-        )
+    )
     client_b.create_tags(
         Resources=[replica_snapshot['SnapshotId']],
         Tags=[

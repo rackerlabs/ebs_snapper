@@ -24,6 +24,7 @@
 from __future__ import print_function
 import logging
 import collections
+import os
 import random
 import datetime
 from datetime import timedelta
@@ -49,6 +50,15 @@ AWS_TAGS = [
 ]
 SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
+
+
+def configure_logging(context, logger, level=logging.INFO, boto_level=logging.WARNING):
+    """Configure default logging"""
+
+    logging.basicConfig(level=int(os.environ.get('LOG_LEVEL', level)))
+    logger.setLevel(int(os.environ.get('LOG_LEVEL', level)))
+    logging.getLogger('botocore').setLevel(int(os.environ.get('LOG_LEVEL_BOTO', boto_level)))
+    logging.getLogger('boto3').setLevel(int(os.environ.get('LOG_LEVEL_BOTO', boto_level)))
 
 
 def get_owner_id(context, region=None):
@@ -270,12 +280,12 @@ def get_instance(instance_id, region):
     ec2 = boto3.client('ec2', region_name=region)
     instance_data = ec2.describe_instances(InstanceIds=[instance_id])
     if 'Reservations' not in instance_data:
-        raise Exception('Response missing reservations %s', instance_data)
+        raise Exception('Response missing reservations {}'.format(instance_data))
 
     reservations = instance_data['Reservations']
     instances = sum([[i for i in r['Instances']] for r in reservations], [])
     if not len(instances) == 1:
-        raise Exception('Found too many instances for this id %s', instances)
+        raise Exception('Found too many instances for this id {}'.format(instances))
 
     return instances[0]
 
@@ -284,7 +294,11 @@ def most_recent_snapshot(volume_id, region):
     """find and return the most recent snapshot"""
     recent = {}
 
-    page_iterator = build_snapshot_paginator([volume_id], region)
+    params = {'Filters': [
+        {'Name': 'volume-id', 'Values': [volume_id]}
+    ]}
+
+    page_iterator = build_snapshot_paginator(params, region)
     for page in page_iterator:
         for s in page['Snapshots']:
             if recent == {} or recent['StartTime'] < s['StartTime']:
@@ -300,7 +314,11 @@ def get_snapshots_by_volume(volume_id, region):
     """Return snapshots by volume and region"""
     snapshot_list = []
 
-    page_iterator = build_snapshot_paginator([volume_id], region)
+    params = {'Filters': [
+        {'Name': 'volume-id', 'Values': [volume_id]}
+    ]}
+
+    page_iterator = build_snapshot_paginator(params, region)
     for page in page_iterator:
         for s in page['Snapshots']:
             snapshot_list.append(s)
@@ -312,7 +330,11 @@ def get_snapshots_by_volumes(volume_list, region):
     """Return snapshots by volume and region"""
     snapshot_list = []
 
-    page_iterator = build_snapshot_paginator(volume_list, region)
+    params = {'Filters': [
+        {'Name': 'volume-id', 'Values': volume_list}
+    ]}
+
+    page_iterator = build_snapshot_paginator(params, region)
     for page in page_iterator:
         for s in page['Snapshots']:
             snapshot_list.append(s)
@@ -320,16 +342,15 @@ def get_snapshots_by_volumes(volume_list, region):
     return snapshot_list
 
 
-def build_snapshot_paginator(volume_list, region):
+def build_snapshot_paginator(params, region):
     """Utility function to make pagination of snapshots easier"""
     ec2 = boto3.client('ec2', region_name=region)
 
+    params['PaginationConfig'] = {'PageSize': 100}
+
     paginator = ec2.get_paginator('describe_snapshots')
-    operation_parameters = {'Filters': [
-        {'Name': 'volume-id', 'Values': volume_list}
-    ]}
     sleep(1)  # help w/ API limits
-    return paginator.paginate(**operation_parameters)
+    return paginator.paginate(**params)
 
 
 def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, additional_tags=None):
@@ -417,11 +438,11 @@ def get_volume(volume_id, region):
     ec2 = boto3.client('ec2', region_name=region)
     volume_data = ec2.describe_volumes(VolumeIds=[volume_id])
     if 'Volumes' not in volume_data:
-        raise Exception('Response missing volumes %s', volume_data)
+        raise Exception('Response missing volumes {}'.format(volume_data))
 
     volumes = volume_data['Volumes']
     if not len(volumes) == 1:
-        raise Exception('Found too many volumes for this id %s', volumes)
+        raise Exception('Found too many volumes for this id {}'.format(volumes))
 
     return volumes[0]
 
@@ -653,14 +674,10 @@ def chunk_volume_work(region, volume_list):
     snapshot_id_to_data = {}
     LOG.debug("Pulling snapshots for: %s", str(volume_list))
 
-    session = boto3.session.Session(region_name=region)
-    ec2 = session.client('ec2')
-
-    paginator = ec2.get_paginator('describe_snapshots')
-    operation_parameters = {'Filters': [
+    params = {'Filters': [
         {'Name': 'volume-id', 'Values': volume_list}
     ]}
-    page_iterator = paginator.paginate(**operation_parameters)
+    page_iterator = build_snapshot_paginator(params, region)
 
     for page in page_iterator:
         for snap in page['Snapshots']:
@@ -693,18 +710,17 @@ def build_replication_cache(context, tags, configurations, region, installed_reg
     # all replication-related snapshots will have one or the other of these tags
     found_snapshots = {}
 
-    ec2 = boto3.client('ec2', region_name=region)
     region_owner_ids = get_owner_id(region)
     for tag in tags:
         found_snapshots[tag] = []
 
-        paginator = ec2.get_paginator('describe_snapshots')
-        operation_parameters = {
+        params = {
             'Filters': [{'Name': 'tag-key', 'Values': [tag]}],
             'OwnerIds': region_owner_ids,
         }
-        sleep(1)  # help w/ API limits
-        for page in paginator.paginate(**operation_parameters):
+        paginator = build_snapshot_paginator(params, region)
+
+        for page in paginator:
             if timeout_check(context, 'perform_replication'):
                 break
 
@@ -803,7 +819,7 @@ class NonLambdaContext(object):
     @staticmethod
     def timedelta_milliseconds(td):
         """return milliseconds from a timedelta"""
-        return td.days*86400000 + td.seconds*1000 + td.microseconds/1000
+        return (td.days * 86400000) + (td.seconds * 1000) + (td.microseconds / 1000)
 
 
 class ShellContext(NonLambdaContext):

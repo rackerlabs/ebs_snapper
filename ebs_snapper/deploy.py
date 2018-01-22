@@ -136,8 +136,8 @@ def create_or_update_s3_bucket(aws_account, lambda_zip_filename):
 
             remote_hash = object_summary['ETag'].strip('"')
 
-            LOG.debug("Local file MD5 sum: " + local_hash)
-            LOG.debug("ETag from AWS: " + remote_hash)
+            LOG.debug("Local file MD5 sum: %s", str(local_hash))
+            LOG.debug("ETag from AWS: %s", str(remote_hash))
 
             if local_hash == remote_hash:
                 LOG.info("Skipping upload of %s, already up-to-date in S3", filename)
@@ -470,8 +470,8 @@ def sanity_check(context, installed_region='us-east-1', aws_account_id=None):
         if s not in found_config_tag_values:
             findings.append('{} was tagged on an instance, but no configuration exists'.format(s))
 
-    LOG.debug("configs: " + str(found_config_tag_values))
-    LOG.debug("tags: " + str(found_backup_tag_values))
+    LOG.debug("configs: %s", str(found_config_tag_values))
+    LOG.debug("tags: %s", str(found_backup_tag_values))
 
     return findings
 

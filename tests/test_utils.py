@@ -241,7 +241,7 @@ def test_calculate_relevant_tags():
     instance_tags = [
         {'Key': 'Foo', 'Value': 'Bar'},  # normal tag
         {'Key': 'BusinessUnit', 'Value': 'Dept1'}  # billing tag
-        ]
+    ]
     for i in xrange(0, 8):
         instance_tags.append({'Key': "foo-" + str(i), 'Value': "bar-" + str(i)})
 
@@ -250,9 +250,9 @@ def test_calculate_relevant_tags():
         {'Key': 'Foo', 'Value': 'Baz'},  # more normal tags
         {'Key': 'BusinessUnit', 'Value': 'Dept2'},  # billing tag override
         {'Key': 'Cluster', 'Value': 'Bank'}  # billing tag that won't override
-        ]
+    ]
     for i in xrange(0, 6):
-        volume_tags.append({'Key': "foo-" + str(i), 'Value': "bar-" + str(i+100)})
+        volume_tags.append({'Key': "foo-" + str(i), 'Value': "bar-" + str(i + 100)})
 
     # create an instance and record the id
     instance_id = mocks.create_instances(region, count=1)[0]

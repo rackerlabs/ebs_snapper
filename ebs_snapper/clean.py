@@ -27,7 +27,6 @@ from datetime import timedelta
 import datetime
 import json
 import logging
-import boto3
 from ebs_snapper import utils, dynamo, timeout_check
 
 LOG = logging.getLogger()
@@ -62,7 +61,6 @@ def send_fanout_message(context, region, topic_arn, cli=False):
 def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-east-1'):
     """Check the region see if we should clean up any snapshots"""
     LOG.info('clean_snapshot in region %s', region)
-    ec2 = boto3.client('ec2', region_name=region)
 
     # fetch these, in case we need to figure out what applies to an instance
     configurations = dynamo.list_configurations(context, installed_region)
@@ -98,8 +96,8 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
     params = {'Filters': filters}
 
     # paginate the snapshot list
-    tag_paginator = ec2.get_paginator('describe_snapshots')
-    for page in tag_paginator.paginate(**params):
+    tag_paginator = utils.build_snapshot_paginator(params, region)
+    for page in tag_paginator:
         # stop if we're running out of time
         if timeout_check(context, 'clean_snapshot'):
             break
