@@ -172,21 +172,37 @@ def get_regions(must_contain_instances=False, must_contain_snapshots=False):
 def region_contains_instances(region):
     """Check if a region contains EC2 instances"""
     client = boto3.client('ec2', region_name=region)
-    instances = client.describe_instances(
-        Filters=[{'Name': 'instance-state-name',
-                  'Values': ['running', 'stopped']}]
-    )
-    return 'Reservations' in instances and len(instances['Reservations']) > 0
+    try:
+        instances = client.describe_instances(
+            Filters=[{'Name': 'instance-state-name',
+                      'Values': ['running', 'stopped']}]
+        )
+        return 'Reservations' in instances and len(instances['Reservations']) > 0
+    except Exception as e:
+        LOG.warn('Failed to describe instances in region %s: %s', region, str(e))
+
+        if 'You are not subscribed to this service' in str(e):
+            return False
+
+        raise
 
 
 def region_contains_snapshots(region):
     """Check if a region contains snapshots instances"""
     client = boto3.client('ec2', region_name=region)
-    snapshots = client.describe_snapshots(
-        OwnerIds=get_owner_id(region),
-        MaxResults=5
-    )
-    return 'Snapshots' in snapshots and len(snapshots['Snapshots']) > 0
+    try:
+        snapshots = client.describe_snapshots(
+            OwnerIds=get_owner_id(region),
+            MaxResults=5
+        )
+        return 'Snapshots' in snapshots and len(snapshots['Snapshots']) > 0
+    except Exception as e:
+        LOG.warn('Failed to describe snapshots in region %s: %s', region, str(e))
+
+        if 'You are not subscribed to this service' in str(e):
+            return False
+
+        raise
 
 
 def get_topic_arn(topic_name, default_region='us-east-1'):
