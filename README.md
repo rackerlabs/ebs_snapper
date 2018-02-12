@@ -29,9 +29,9 @@ We strongly recommend [using virtualenv](http://docs.python-guide.org/en/latest/
 
 Since this package is not currently in PyPi, it will need to be installed locally: git clone the repo (choose a tag, please!) to your workstation then run these commands from inside the repo's main directory:
 ```
-git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.10.0
+git clone git@github.com:rackerlabs/ebs_snapper.git -b v0.10.1
 cd ebs_snapper
-wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.10.0/ebs_snapper.zip
+wget -O ebs_snapper.zip s3.amazonaws.com/production-ebs-snapper/v0.10.1/ebs_snapper.zip
 pip install -r requirements.txt
 pip install -e .
 ```
@@ -203,13 +203,13 @@ Specifically for the clean job, a cache is built of much of the needed data to d
 ```
 ebs-snapper -V replication
 INFO:root:Performing snapshot replication in region us-east-1
-INFO:root:Working on copying this snapshot snap-0daf235945e307e7c (if needed): Created from i-05d0486d6c8b1ae49 by EbsSnapper(0.10.0) for ami-c7c546d1 from vol-0d4be5bde49115a56
+INFO:root:Working on copying this snapshot snap-0daf235945e307e7c (if needed): Created from i-05d0486d6c8b1ae49 by EbsSnapper(0.10.1) for ami-c7c546d1 from vol-0d4be5bde49115a56
 INFO:root:Not creating more snapshots, since snapshot_id snap-0daf235945e307e7c was already found in us-west-2
-INFO:root:Working on copying this snapshot snap-08123b99992aba69d (if needed): Created from i-088e9520113fb4e35 by EbsSnapper(0.10.0) for ami-7250d264 from vol-0217da8a108684fa4
+INFO:root:Working on copying this snapshot snap-08123b99992aba69d (if needed): Created from i-088e9520113fb4e35 by EbsSnapper(0.10.1) for ami-7250d264 from vol-0217da8a108684fa4
 INFO:root:Not creating more snapshots, since snapshot_id snap-08123b99992aba69d was already found in us-west-2
-INFO:root:Working on copying this snapshot snap-08bb5aff7b2ccef49 (if needed): Created from i-05b64394cd94260f4 by EbsSnapper(0.10.0) for ami-7250d264 from vol-0349099862e322830
+INFO:root:Working on copying this snapshot snap-08bb5aff7b2ccef49 (if needed): Created from i-05b64394cd94260f4 by EbsSnapper(0.10.1) for ami-7250d264 from vol-0349099862e322830
 INFO:root:Not creating more snapshots, since snapshot_id snap-08bb5aff7b2ccef49 was already found in us-west-2
-INFO:root:Working on copying this snapshot snap-06476a1fdf283c0e0 (if needed): Created from i-05b64394cd94260f4 by EbsSnapper(0.10.0) for ami-7250d264 from vol-029e224bfe6c74001
+INFO:root:Working on copying this snapshot snap-06476a1fdf283c0e0 (if needed): Created from i-05b64394cd94260f4 by EbsSnapper(0.10.1) for ami-7250d264 from vol-029e224bfe6c74001
 INFO:root:Not creating more snapshots, since snapshot_id snap-0e30eba44dc55832e was already found in us-west-2
 WARNING:root:Lambda/Less than 1m remaining in function (59725ms): perform_replication
 INFO:root:Performing snapshot replication in region us-west-1

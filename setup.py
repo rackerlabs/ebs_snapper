@@ -8,7 +8,7 @@ setup(
     name='ebs_snapper',
     description='Collection of AWS Lambda functions create, manage, and delete EBS snapshots',
     keywords='aws lambda ebs ec2 snapshot backup',
-    version='0.10.0',
+    version='0.10.1',
     author='Rackspace',
     author_email='fps@rackspace.com',
     url='https://github.com/rackerlabs/ebs_snapper',

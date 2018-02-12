@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- Fix for regions that aren't truly launched yet (#70)
+
 ## 0.10.0
 
 - More logging and smaller pagination (#69)
