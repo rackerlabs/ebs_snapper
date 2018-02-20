@@ -65,7 +65,7 @@
           ]
         }
       ]
-    },
+    }
   },
   "Resources" : {
     "EbsSnapshotConfigurationTable" : {
@@ -458,7 +458,7 @@
                     "events:Describe*",
                     "events:List*",
                     "events:EnableRule",
-                    "events:DisableRule",
+                    "events:DisableRule"
                   ],
                   "Resource" : "*"
                 }, {
