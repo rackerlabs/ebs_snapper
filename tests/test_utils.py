@@ -347,3 +347,65 @@ def test_build_replication_cache():
     cache2 = utils.build_replication_cache(context, tags, configurations, region, installed_region)
     assert cache2['replication_src_region'][0]['SnapshotId'] == src_snapshot['SnapshotId']
     assert cache2['replication_dst_region'][0]['SnapshotId'] == dst_snapshot['SnapshotId']
+
+
+@mock_ec2
+@mock_iam
+@mock_sts
+def test_snapshot_including_tag():
+    """Confirm that newer tag-on-snapshot call is working and correct args"""
+    # client.create_tags()
+    region = 'us-west-2'
+    client = boto3.client('ec2', region_name=region)
+
+    # some instance tags
+    instance_tags = [{'Key': 'test-instance', 'Value': 'instance'}]
+
+    # some volume tags
+    volume_tags = [{'Key': 'test-volume', 'Value': 'volume'}]
+
+    # create an instance and record the id
+    instance_id = mocks.create_instances(region, count=1)[0]
+    client.create_tags(
+        Resources=[instance_id],
+        Tags=instance_tags
+    )
+
+    # figure out the EBS volume that came with our instance
+    volume_id = utils.get_volumes([instance_id], region)[0]['VolumeId']
+    client.create_tags(
+        Resources=[volume_id],
+        Tags=volume_tags
+    )
+
+    # make some snapshots that should be deleted today
+    now = datetime.now(dateutil.tz.tzutc())
+    delete_on = now.strftime('%Y-%m-%d')
+
+    instance_data = utils.get_instance(instance_id, region=region)
+    volume_data = utils.get_volume(volume_id, region=region)
+    expected_tags = utils.calculate_relevant_tags(
+        instance_data.get('Tags', None),
+        volume_data.get('Tags', None))
+
+    # create the snapshot
+    utils.snapshot_and_tag(instance_id,
+                           'ami-123abc',
+                           volume_id,
+                           delete_on,
+                           region,
+                           additional_tags=expected_tags)
+
+    # now confirm the tags are correct
+    snapshots = utils.get_snapshots_by_volume(volume_id, region)
+    created_snap = snapshots[0]
+
+    # check those expected tags
+    expected_pairs = {
+        'test-instance': 'instance',
+        'test-volume': 'volume',
+        'DeleteOn': delete_on,
+    }
+
+    for k, v in expected_pairs.iteritems():
+        assert {'Key': k, 'Value': v} in created_snap['Tags']

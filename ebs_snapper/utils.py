@@ -396,14 +396,14 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
 
     ec2 = boto3.client('ec2', region_name=region)
 
+    # raise Exception(str(full_tags[:50]))
     snapshot = ec2.create_snapshot(
         VolumeId=volume_id,
-        Description=snapshot_description[0:254]
-    )
-
-    ec2.create_tags(
-        Resources=[snapshot['SnapshotId']],
-        Tags=full_tags[:50]
+        Description=snapshot_description[0:254],
+        TagSpecifications=[{
+            'ResourceType': 'snapshot',
+            'Tags': full_tags[:50]
+        }]
     )
 
     LOG.debug('Finished snapshot in %s of volume %s, valid until %s',
