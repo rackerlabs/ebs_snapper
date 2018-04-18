@@ -382,10 +382,17 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
         ebs_snapper.__version__
     )
 
+    max_tags = 49
     full_tags = [{'Key': 'DeleteOn', 'Value': delete_on}]
     if additional_tags is not None:
-        # we only get 10 tags, so restrict additional_tags to nine
-        full_tags.extend(additional_tags[:9])
+        repl_tags = [x for x in additional_tags if x.get('Key') == 'replication_dst_region']
+        if len(repl_tags) > 0:
+            # append the replication tag if it exists, only accept 48 from caller
+            full_tags.extend(repl_tags)
+            max_tags = max_tags - 1
+
+        # we only get 50 tags, so restrict additional_tags to max_tags
+        full_tags.extend(additional_tags[:max_tags])
 
     ec2 = boto3.client('ec2', region_name=region)
 
@@ -396,7 +403,7 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
 
     ec2.create_tags(
         Resources=[snapshot['SnapshotId']],
-        Tags=full_tags
+        Tags=full_tags[:50]
     )
 
     LOG.debug('Finished snapshot in %s of volume %s, valid until %s',
@@ -507,7 +514,7 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
     return None
 
 
-def calculate_relevant_tags(instance_tags, volume_tags, max_results=10):
+def calculate_relevant_tags(instance_tags, volume_tags, max_results=50):
     """Copy AWS tags from instance to volume to snapshot, per product guide"""
 
     # ordered dict of tags, because we care about order

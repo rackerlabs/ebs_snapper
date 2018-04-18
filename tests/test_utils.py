@@ -251,7 +251,8 @@ def test_calculate_relevant_tags():
         {'Key': 'BusinessUnit', 'Value': 'Dept2'},  # billing tag override
         {'Key': 'Cluster', 'Value': 'Bank'}  # billing tag that won't override
     ]
-    for i in xrange(0, 6):
+    # 47 because volumes can only have 50 tags too
+    for i in xrange(0, 47):
         volume_tags.append({'Key': "foo-" + str(i), 'Value': "bar-" + str(i + 100)})
 
     # create an instance and record the id
@@ -301,6 +302,10 @@ def test_calculate_relevant_tags():
 
     for k, v in expected_pairs.iteritems():
         assert {'Key': k, 'Value': v} in created_snap['Tags']
+
+    # be sure we don't include the last tag of the 50, it should have been chopped off
+    # because of the DeleteOn tag taking an extra space, and 50 tags + DeleteOn > 50 max tags
+    assert {'Key': 'foo-47', 'Value': 'bar-' + str(47 + 100)} not in created_snap['Tags']
 
 
 @mock_ec2
