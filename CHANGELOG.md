@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.2
+- Raise tag limits now that EC2 allows up to 50, be sure we prioritize replication tags as well (#78)
+
 ## 0.10.1
 
 - Fix for regions that aren't truly launched yet (#70)
