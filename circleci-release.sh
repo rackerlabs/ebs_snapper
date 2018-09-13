@@ -54,7 +54,7 @@ s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 
 aws_endpoint=https://s3.amazonaws.com/${AWS_BUCKET}
 # Check for official release ie v0.5.1 not v0.5.1-kj34kdf
-if [[ $release =~ ^v([0-9]+).([0-9]+).([0-9]+)$ ]]; then
+if [[ $release =~ ^([0-9]+).([0-9]+).([0-9]+)$ ]]; then
   current_version=$(curl -s ${aws_endpoint}/LATEST | sed 's/^v//g')
   echo "Latest official release: ${current_version}"
   echo "This build's version: ${release}"
