@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.3
+- Cut a new release since our semver logic was broken (#81)
+
 ## 0.10.2
 - Raise tag limits now that EC2 allows up to 50, be sure we prioritize replication tags as well (#78)
 
