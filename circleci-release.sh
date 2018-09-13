@@ -49,7 +49,7 @@ if ! [ ${CIRCLE_BRANCH} == "master" ]; then
   exit 0
 fi
 
-s3artifact -bucket $AWS_BUCKET -name ${release}/${name} ${CIRCLE_ARTIFACTS}/${name}
+s3artifact -bucket $AWS_BUCKET -name v${release}/${name} ${CIRCLE_ARTIFACTS}/${name}
 s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 
 aws_endpoint=https://s3.amazonaws.com/${AWS_BUCKET}
