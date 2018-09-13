@@ -31,7 +31,7 @@ vercomp () {
     return 0
 }
 
-release=$(git describe --always --tags)
+release=$(git describe --always --tags | sed 's/^v//g')
 sha=$(echo ${CIRCLE_SHA1} | cut -c1-6)
 bucket=""
 content_type="application/zip"
@@ -55,7 +55,7 @@ s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 aws_endpoint=https://s3.amazonaws.com/${AWS_BUCKET}
 # Check for official release ie v0.5.1 not v0.5.1-kj34kdf
 # if [[ $release =~ ^v([0-9]+).([0-9]+).([0-9]+)$ ]]; then
-  current_version=$(curl -s ${aws_endpoint}/LATEST)
+  current_version=$(curl -s ${aws_endpoint}/LATEST | sed 's/^v//g')
   echo "Latest official release: ${current_version}"
   echo "This build's version: ${release}"
 
@@ -65,7 +65,7 @@ aws_endpoint=https://s3.amazonaws.com/${AWS_BUCKET}
   elif [[ $? -eq 1 ]]; then
     # If the version in S3 is not the latest then update it
     echo "Releasing to S3 because $current_version < $release"
-    echo $release > ${CIRCLE_ARTIFACTS}/LATEST
+    echo "v$release" > ${CIRCLE_ARTIFACTS}/LATEST
     # s3artifact -bucket $AWS_BUCKET -name LATEST -acl public-read ${CIRCLE_ARTIFACTS}/LATEST
   elif [[ $? -eq 2 ]]; then
     echo "Not releasing to S3 because $current_version < $release"
