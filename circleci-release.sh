@@ -46,7 +46,7 @@ mv ${name} ${CIRCLE_ARTIFACTS}/${name} || exit 2
 
 if ! [ ${CIRCLE_BRANCH} == "master" ]; then
   echo "Not releasing, this branch is not master"
-  exit 0
+  # exit 0
 fi
 
 s3artifact -bucket $AWS_BUCKET -name ${release}/${name} ${CIRCLE_ARTIFACTS}/${name}
@@ -54,9 +54,10 @@ s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 
 aws_endpoint=https://s3.amazonaws.com/${AWS_BUCKET}
 # Check for official release ie v0.5.1 not v0.5.1-kj34kdf
-if [[ $release =~ ^v([0-9]+).([0-9]+).([0-9]+)$ ]]; then
+# if [[ $release =~ ^v([0-9]+).([0-9]+).([0-9]+)$ ]]; then
   current_version=$(curl -s ${aws_endpoint}/LATEST)
   echo "Latest official release: ${current_version}"
+  echo "This build's version: ${release}"
 
   vercomp $release $current_version
   if [[ $? -eq 0 ]]; then
@@ -65,13 +66,13 @@ if [[ $release =~ ^v([0-9]+).([0-9]+).([0-9]+)$ ]]; then
     # If the version in S3 is not the latest then update it
     echo "Releasing to S3 because $current_version < $release"
     echo $release > ${CIRCLE_ARTIFACTS}/LATEST
-    s3artifact -bucket $AWS_BUCKET -name LATEST -acl public-read ${CIRCLE_ARTIFACTS}/LATEST
+    # s3artifact -bucket $AWS_BUCKET -name LATEST -acl public-read ${CIRCLE_ARTIFACTS}/LATEST
   elif [[ $? -eq 2 ]]; then
     echo "Not releasing to S3 because $current_version < $release"
   else
     echo "Something went wrong comparing versions to determine if a release should happen."
     exit 3
   fi
-else
-  echo "Release $release did not match regex, not going to release"
-fi
+#else
+#  echo "Release $release did not match regex, not going to release"
+#fi
