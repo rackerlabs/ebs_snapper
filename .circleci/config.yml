@@ -35,7 +35,7 @@ jobs:
           command: |
             curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
             sudo python get-pip.py
-            sudo python pip install virtualenv
+            sudo pip install virtualenv
             virtualenv venv
             source venv/bin/activate
             pip install -U pip
