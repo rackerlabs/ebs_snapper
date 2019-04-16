@@ -1,0 +1,53 @@
+version: 2
+jobs:
+  test:
+    docker:
+      - image: circleci/python:2.7.13
+    working_directory: ~/cwd
+    steps:
+      - checkout
+      - run:
+          name: install dependencies
+          command: |
+            virtualenv venv
+            source venv/bin/activate
+            pip install -U pip
+            pip install -U tox
+            pip install awscli==1.15.4
+            pip install -r requirements.txt
+            pip uninstall --yes ebs_snapper || /bin/true
+            deactivate
+            rm -rf venv/lib/python2.7/site-packages/ebs_snapper* || /bin/true
+      - run:
+          name: run tests
+          command: |
+            source venv/bin/activate
+            aws cloudformation validate-template --template-body=file://cloudformation.json --region us-east-1
+            tox
+  release:
+    docker:
+      - image: circleci/golang:1.10.0
+    working_directory: ~/cwd
+    steps:
+      - checkout
+      - run:
+          name: release
+          command: |
+            go get github.com/jarosser06/s3artifact
+            ./circleci-release.sh
+workflows:
+  version: 2
+  nonmaster:
+    jobs:
+      - test:
+          filters:
+            branches:
+              ignore:
+                - master
+  master:
+    jobs:
+      - release:
+          filters:
+            branches:
+              only:
+                - master
