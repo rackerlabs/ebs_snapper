@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.4
+- Fix issue where minimum snaps was not validated.
+
 ## 0.10.3
 - Cut a new release since our semver logic was broken (#81)
 
