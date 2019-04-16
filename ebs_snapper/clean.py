@@ -129,7 +129,10 @@ def clean_snapshot(context, region, default_min_snaps=5, installed_region='us-ea
                 if volume_instance is not None:
                     snapshot_settings = instance_configs.get(volume_instance, None)
                     if snapshot_settings is not None:
-                        minimum_snaps = snapshot_settings['snapshot']['minimum']
+                        try:
+                            minimum_snaps = int(snapshot_settings['snapshot']['minimum'])
+                        except ValueError:
+                            raise Exception("Minimum number of snaps configured is not an integer.")
 
                 # current number of snapshots
                 if snapshot_volume in volume_snap_count:
