@@ -36,12 +36,14 @@ sha=$(echo ${CIRCLE_SHA1} | cut -c1-6)
 bucket=""
 content_type="application/zip"
 date=$(date -R)
+CIRCLE_ARTIFACTS="~/cwd/artifacts"
 
 # create zip file
 name=ebs_snapper.zip
 ebs-snapper deploy --no_stack --no_upload -a 1234
 
 echo "Moving ${name} to CircleCI artifacts directory"
+mkdir -p ${CIRCLE_ARTIFACTS}
 mv ${name} ${CIRCLE_ARTIFACTS}/${name} || exit 2
 
 if ! [ ${CIRCLE_BRANCH} == "master" ]; then

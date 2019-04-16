@@ -49,6 +49,8 @@ jobs:
             source venv/bin/activate
             ./circleci-release.sh
             deactivate
+      - store_artifacts:
+          path: ~/cwd/artifacts
 workflows:
   version: 2
   nonmaster:
