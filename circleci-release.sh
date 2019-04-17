@@ -36,7 +36,7 @@ sha=$(echo ${CIRCLE_SHA1} | cut -c1-6)
 bucket=""
 content_type="application/zip"
 date=$(date -R)
-CIRCLE_ARTIFACTS="~/cwd/artifacts"
+CIRCLE_ARTIFACTS=~/cwd/artifacts
 
 # create zip file
 name=ebs_snapper.zip
