@@ -64,6 +64,8 @@ workflows:
     jobs:
       - release:
           filters:
+            tags:
+              only: /^v.*/
             branches:
               only:
                 - master
