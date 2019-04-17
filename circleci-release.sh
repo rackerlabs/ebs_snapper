@@ -46,11 +46,6 @@ echo "Moving ${name} to CircleCI artifacts directory"
 mkdir -p ${CIRCLE_ARTIFACTS}
 mv ${name} ${CIRCLE_ARTIFACTS}/${name} || exit 2
 
-if ! [ ${CIRCLE_BRANCH} == "master" ]; then
-  echo "Not releasing, this branch is not master"
-  exit 0
-fi
-
 s3artifact -bucket $AWS_BUCKET -name v${release}/${name} ${CIRCLE_ARTIFACTS}/${name}
 s3artifact -bucket $AWS_BUCKET -name LATEST/${name} ${CIRCLE_ARTIFACTS}/${name}
 
