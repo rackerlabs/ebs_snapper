@@ -31,6 +31,7 @@ from datetime import timedelta
 from multiprocessing.pool import ThreadPool
 import functools
 from time import sleep
+from botocore.exceptions import ClientError
 import dateutil
 import boto3
 from crontab import CronTab
@@ -50,6 +51,7 @@ AWS_TAGS = [
 ]
 SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
+UNSUPPORTED_REGION_EXCEPTIONS = ['AuthFailure', 'OptInRequired']
 
 
 def configure_logging(context, logger, level=logging.INFO, boto_level=logging.WARNING):
@@ -178,10 +180,10 @@ def region_contains_instances(region):
                       'Values': ['running', 'stopped']}]
         )
         return 'Reservations' in instances and len(instances['Reservations']) > 0
-    except Exception as e:
+    except ClientError as e:
         LOG.warn('Failed to describe instances in region %s: %s', region, str(e))
 
-        if 'You are not subscribed to this service' in str(e):
+        if e.response['Error']['Code'] in UNSUPPORTED_REGION_EXCEPTIONS:
             return False
 
         raise
@@ -196,10 +198,9 @@ def region_contains_snapshots(region):
             MaxResults=5
         )
         return 'Snapshots' in snapshots and len(snapshots['Snapshots']) > 0
-    except Exception as e:
+    except ClientError as e:
         LOG.warn('Failed to describe snapshots in region %s: %s', region, str(e))
-
-        if 'You are not subscribed to this service' in str(e):
+        if e.response['Error']['Code'] in UNSUPPORTED_REGION_EXCEPTIONS:
             return False
 
         raise
