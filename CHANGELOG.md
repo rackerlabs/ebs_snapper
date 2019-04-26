@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.5
+- Adds handling for disabled regions (#91)
+
 ## 0.10.4
 - Fix issue where minimum snaps was not validated.
 
