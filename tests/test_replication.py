@@ -95,6 +95,7 @@ def test_perform_replication(mocker):
 
     # create a volume in region_a
     volume = client_a.create_volume(Size=100, AvailabilityZone=region_a + "a")
+    snapshot_name = "Snapshot_Name"
     snapshot_description = "Something from EBS Snapper"
     snapshot = client_a.create_snapshot(
         VolumeId=volume['VolumeId'],
@@ -102,7 +103,10 @@ def test_perform_replication(mocker):
     )
     client_a.create_tags(
         Resources=[snapshot['SnapshotId']],
-        Tags=[{'Key': 'replication_dst_region', 'Value': region_b}]
+        Tags=[
+            {'Key': 'replication_dst_region', 'Value': region_b},
+            {'Key': 'Name', 'Value': snapshot_name},
+        ]
     )
 
     # trigger replication, assert that we copied a snapshot to region_b
@@ -112,6 +116,7 @@ def test_perform_replication(mocker):
         ctx,
         region_a,
         region_b,
+        snapshot_name,
         snapshot['SnapshotId'],
         snapshot_description)
 

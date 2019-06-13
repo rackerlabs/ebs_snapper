@@ -23,7 +23,6 @@
 
 from __future__ import print_function
 from time import sleep
-import sys
 import json
 import logging
 import boto3
@@ -88,54 +87,48 @@ def perform_replication(context, region, installed_region='us-east-1'):
         installed_region
     )
     # 1a. build snapshot cache from all source regions
-    #snap_cached_src_regions.append(region)
     for snapshot_regions in found_snapshots.get('replication_src_region', []):
         # what region did this come from?
         tag_pairs = snapshot_regions.get('Tags', [])
-        region_tag_pair = [x for x in tag_pairs
-                           if x.get('Key', None) == 'replication_src_region']
+        region_tag_pair = [x for x in tag_pairs if x.get('Key') == 'replication_src_region']
         region_tag_value = region_tag_pair[0].get('Value')
-        if (region_tag_value not in snap_cached_src_regions):
-            LOG.info('Caching snapshots in source region: ' + region_tag_value)
+        if region_tag_value not in snap_cached_src_regions:
+            LOG.info('Caching snapshots in source region: %s', region_tag_value)
             snap_cached_src_regions.append(region_tag_value)
 
             ec2_source = boto3.client('ec2', region_name=region_tag_value)
             try:
                 response = ec2_source.describe_snapshots(
-                    Filters=[
-                    {'Name': 'tag:replication_dst_region', 'Values': [region]},
-                    ]
+                    Filters=[{'Name': 'tag:replication_dst_region', 'Values': [region]}]
                 )
-	        mysnaps = response['Snapshots']
+                mysnaps = response['Snapshots']
             except Exception as err:
                 if 'InvalidSnapshot.NotFound' in str(err):
-		    mysnaps = {'Snapshots', []}
-		else:
-		    raise err
-			
+                    mysnaps = {'Snapshots', []}
+                else:
+                    raise err
+
             for snap in mysnaps:
                 src_snap_list.append(snap['SnapshotId'])
 
-            LOG.info('Caching completed for source region: ' + region_tag_value + ': cache size: ' + str(len(src_snap_list)))
+            LOG.info('Caching completed for source region: ' + region_tag_value + ': cache size: ' +
+                     str(len(src_snap_list)))
             sleep(1)
 
     # 1b. build snapshot cache for all destination regions
     for snapshot_regions in found_snapshots.get('replication_dst_region', []):
         # which region is destination
         tag_pairs = snapshot_regions.get('Tags', [])
-        region_tag_pair = [x for x in tag_pairs
-                           if x.get('Key', None) == 'replication_dst_region']
+        region_tag_pair = [x for x in tag_pairs if x.get('Key') == 'replication_dst_region']
         region_tag_value = region_tag_pair[0].get('Value')
-        if (region_tag_value not in snap_cached_dst_regions):
-            LOG.info('Caching snapshots in destination region: ' + region_tag_value)
+        if region_tag_value not in snap_cached_dst_regions:
+            LOG.info('Caching snapshots in destination region: %s', region_tag_value)
             snap_cached_dst_regions.append(region_tag_value)
 
             ec2_source = boto3.client('ec2', region_name=region_tag_value)
             try:
                 response = ec2_source.describe_snapshots(
-                    Filters=[
-                    {'Name': 'tag:replication_src_region', 'Values': [region]},
-                    ]
+                    Filters=[{'Name': 'tag:replication_src_region', 'Values': [region]}]
                 )
                 mysnaps = response['Snapshots']
             except Exception as err:
@@ -149,7 +142,8 @@ def perform_replication(context, region, installed_region='us-east-1'):
                     if tags["Key"] == 'replication_snapshot_id':
                         replication_snap_list.append(tags["Value"])
 
-            LOG.info('Caching completed for destination region: ' + region_tag_value + ': cache size: ' + str(len(replication_snap_list)))
+            LOG.info('Caching completed for destination region: ' + region_tag_value +
+                     ': cache size: ' + str(len(replication_snap_list)))
             sleep(1)
 
     # 2. evaluate snapshots that were copied to this region, if source not found, delete
@@ -173,13 +167,11 @@ def perform_replication(context, region, installed_region='us-east-1'):
 
         # what region did this come from?
         tag_pairs = snapshot.get('Tags', [])
-        region_tag_pair = [x for x in tag_pairs
-                           if x.get('Key', None) == 'replication_src_region']
+        region_tag_pair = [x for x in tag_pairs if x.get('Key') == 'replication_src_region']
         region_tag_value = region_tag_pair[0].get('Value')
 
         # what snapshot id did this come from?
-        snapshotid_tag_pair = [x for x in tag_pairs
-                               if x.get('Key', None) == 'replication_snapshot_id']
+        snapshotid_tag_pair = [x for x in tag_pairs if x.get('Key') == 'replication_snapshot_id']
         snapshotid_tag_value = snapshotid_tag_pair[0].get('Value')
 
         if snapshotid_tag_value in src_snap_list:
@@ -216,11 +208,12 @@ def perform_replication(context, region, installed_region='us-east-1'):
 
         # what region should this be mapped to?
         tag_pairs = snapshot.get('Tags', [])
-        region_tag_pair = [x for x in tag_pairs if x.get('Key', None) == 'replication_dst_region']
+        region_tag_pair = [x for x in tag_pairs if x.get('Key') == 'replication_dst_region']
         region_tag_value = region_tag_pair[0].get('Value')
 
-	name_tag_pair = [x for x in tag_pairs if x.get('Key', None) == 'Name']
-	name_tag_value = name_tag_pair[0].get('Value')
+        name_tag_pair = [x for x in tag_pairs if x.get('Key') == 'Name']
+        name_tag_pair.append({})  # Adds empty dictionary to list in even no Name tag is present
+        name_tag_value = name_tag_pair[0].get('Value')
 
         # does it already exist in the target region?
         if snapshot_id in replication_snap_list:
