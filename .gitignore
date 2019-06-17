@@ -58,3 +58,7 @@ target/
 
 # lambda function packages
 *.zip
+.lambda_uploader_temp
+
+# VS Code
+.vscode/

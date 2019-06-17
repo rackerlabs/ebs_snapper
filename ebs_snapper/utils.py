@@ -759,7 +759,8 @@ def build_replication_cache(context, tags, configurations, region, installed_reg
     return found_snapshots
 
 
-def copy_snapshot_and_tag(context, source_region, dest_region, snapshot_id, snapshot_description):
+def copy_snapshot_and_tag(context, source_region, dest_region, name_tag, snapshot_id,
+                          snapshot_description):
     """Copy a snapshot to another region and tag it as such"""
     ec2 = boto3.client('ec2', region_name=dest_region)
     try:
@@ -770,13 +771,13 @@ def copy_snapshot_and_tag(context, source_region, dest_region, snapshot_id, snap
         )
         sleep(1)
         created_snapshot_id = result['SnapshotId']
-        ec2.create_tags(
-            Resources=[created_snapshot_id],
-            Tags=[
-                {'Key': 'replication_src_region', 'Value': source_region},
-                {'Key': 'replication_snapshot_id', 'Value': snapshot_id}
-            ]
-        )
+        tags = [
+            {'Key': 'replication_src_region', 'Value': source_region},
+            {'Key': 'replication_snapshot_id', 'Value': snapshot_id}
+        ]
+        if name_tag:
+            tags.append({'Key': 'Name', 'Value': name_tag})
+        ec2.create_tags(Resources=[created_snapshot_id], Tags=tags)
 
         return created_snapshot_id
     except Exception as e:
