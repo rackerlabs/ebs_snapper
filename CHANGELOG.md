@@ -1,15 +1,24 @@
 # Changelog
 
+## 0.10.6
+
+- Adds snapshot cache to replication tasks to help improve performance
+- Copies `Name` tag for any replicated snapshots.
+
 ## 0.10.5
+
 - Adds handling for disabled regions (#91)
 
 ## 0.10.4
+
 - Fix issue where minimum snaps was not validated.
 
 ## 0.10.3
+
 - Cut a new release since our semver logic was broken (#81)
 
 ## 0.10.2
+
 - Raise tag limits now that EC2 allows up to 50, be sure we prioritize replication tags as well (#78)
 
 ## 0.10.1
