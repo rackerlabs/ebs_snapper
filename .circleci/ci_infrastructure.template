@@ -1,0 +1,88 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Sets up a repository to publish the EBS Snapper tool",
+  "Resources": {
+    "EbsSnapperBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "AccessControl": "PublicRead",
+        "BucketName": "production-ebs-snapper"
+      }
+    },
+    "UploadUser": {
+      "Type": "AWS::IAM::User",
+      "DependsOn": "EbsSnapperBucket",
+      "Properties": {
+        "Policies": [{
+            "PolicyName": "allowCFValidation",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [{
+                "Effect": "Allow",
+                "Action": [ "cloudformation:ValidateTemplate" ],
+                "Resource":"*"
+              }]
+            }
+          },
+          {
+          "PolicyName": "giveAccessToBucket",
+          "PolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": [
+                "s3:*"
+              ],
+              "Resource": [{
+                "Fn::Join": [ "",
+                  ["arn:aws:s3:::", { "Ref": "EbsSnapperBucket" }]
+                ]
+              }]
+            }]
+          }
+        }]
+      }
+    },
+    "EbsSnapperBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": { "Ref": "EbsSnapperBucket" },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Id": "RaxAccess",
+          "Statement": [
+            {
+              "Sid": "ipAllow",
+              "Effect": "Allow",
+              "Principal": "*",
+              "Action": "s3:GetObject",
+              "Resource": { "Fn::Join": [ "", [ "arn:aws:s3:::",
+                { "Ref": "EbsSnapperBucket" }, "/*" ]] }
+            },
+            {
+              "Sid": "allowUpload",
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {"Fn::GetAtt": ["UploadUser", "Arn"]}
+              },
+              "Action": [
+                "s3:PutObject",
+                "s3:PutObjectAcl"
+              ],
+              "Resource": { "Fn::Join": [ "", [ "arn:aws:s3:::",
+                { "Ref": "EbsSnapperBucket" }, "/*" ]] }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "S3Bucket": {
+      "Description": "S3 Bucket ARN",
+      "Value": { "Fn::Join": [ "",
+                ["arn:aws:s3:::", { "Ref": "EbsSnapperBucket" }]
+      ]}
+    }
+  }
+}
