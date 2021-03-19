@@ -1,5 +1,7 @@
 # ebs_snapper
 
+*NOTICE*: Due to Python 2.7 EOL and [AWS Deprecating the python 2.7 lambda runtime](https://aws.amazon.com/blogs/compute/continued-support-for-python-2-7-on-aws-lambda/) (which ebs_snapper is built on) this project will be archived read only in the future. 
+
 This project allows you to schedule regular EBS snapshots and clean up EBS snapshots on EC2, as well as replicate snapshots to a secondary EC2 region. We make use of IAM, Lambda, CloudFormation, DynamoDB, and EC2.
 
 This project is provided under the Apache License, version 2. Pull requests and contributions are always welcome.
