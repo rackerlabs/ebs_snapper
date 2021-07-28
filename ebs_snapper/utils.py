@@ -49,7 +49,7 @@ AWS_TAGS = [
     "Cluster", "Role", "Customer", "Version",
     "Billing1", "Billing2", "Billing3", "Billing4", "Billing5"
 ]
-SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({3}) for {1} from {2}"
+SNAP_DESC_TEMPLATE = "Created from {0} by EbsSnapper({2}) for {1}"
 ALLOWED_SNAPSHOT_DELETE_FAILURES = ['InvalidSnapshot.InUse', 'InvalidSnapshot.NotFound']
 UNSUPPORTED_REGION_EXCEPTIONS = ['AuthFailure', 'OptInRequired']
 
@@ -370,16 +370,15 @@ def build_snapshot_paginator(params, region):
     return paginator.paginate(**params)
 
 
-def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, additional_tags=None):
+def snapshot_and_tag(instance_id, ami_id, delete_on, region, additional_tags=None):
     """Create snapshot and retention tag"""
 
-    LOG.warn('Creating snapshot in %s of volume %s, valid until %s',
-             region, volume_id, delete_on)
+    LOG.warn('Creating snapshots in %s for volumes attached to instance %s, valid until %s',
+             region, instance_id, delete_on)
 
     snapshot_description = SNAP_DESC_TEMPLATE.format(
         instance_id,
         ami_id,
-        volume_id,
         ebs_snapper.__version__
     )
 
@@ -397,18 +396,22 @@ def snapshot_and_tag(instance_id, ami_id, volume_id, delete_on, region, addition
 
     ec2 = boto3.client('ec2', region_name=region)
 
-    snapshot = ec2.create_snapshot(
-        VolumeId=volume_id,
-        Description=snapshot_description[0:254]
+    snapshot = ec2.create_snapshots(
+        InstanceSpecification={
+        'InstanceId': instance_id,
+        'ExcludeBootVolume': False
+        },
+        Description=snapshot_description[0:254],
+        TagSpecifications=[
+            {
+            'ResourceType': "snapshot",
+            'Tags': full_tags[:50]
+            },
+        ],
     )
 
-    ec2.create_tags(
-        Resources=[snapshot['SnapshotId']],
-        Tags=full_tags[:50]
-    )
-
-    LOG.debug('Finished snapshot in %s of volume %s, valid until %s',
-              region, volume_id, delete_on)
+    LOG.debug('Finished snapshots in %s attached to instance %s, valid until %s',
+              region, instance_id, delete_on)
 
 
 def delete_snapshot(snapshot_id, region):
@@ -515,7 +518,7 @@ def get_snapshot_settings_by_instance(instance_id, configurations, region):
     return None
 
 
-def calculate_relevant_tags(instance_tags, volume_tags, max_results=50):
+def calculate_relevant_tags(instance_tags, max_results=50):
     """Copy AWS tags from instance to volume to snapshot, per product guide"""
 
     # ordered dict of tags, because we care about order
@@ -529,13 +532,6 @@ def calculate_relevant_tags(instance_tags, volume_tags, max_results=50):
     if instance_tags is not None:
         # add relevant ones to the list
         for tag_ds in instance_tags:
-            tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
-            calculated_tags[tag_name] = tag_value
-
-    # overwrite tag values from instances with volume tags/values
-    if volume_tags is not None:
-        # add relevant ones to the list
-        for tag_ds in volume_tags:
             tag_name, tag_value = tag_ds['Key'], tag_ds['Value']
             calculated_tags[tag_name] = tag_value
 

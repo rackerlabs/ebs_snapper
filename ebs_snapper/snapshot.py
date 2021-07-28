@@ -126,6 +126,11 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
         ami_id = instance_data['ImageId']
         LOG.info('Reviewing snapshots in region %s on instance %s', region, instance_id)
 
+        # grabbing nuber of volumes attached. If there is a volume that is atttached
+        # which has at least one snapshot due, it will call the function
+        dev = instance_data.get('BlockDeviceMappings', [])
+        dev_due_count = 0
+
         for dev in instance_data.get('BlockDeviceMappings', []):
             # before we go make a bunch more API calls
             if timeout_check(context, 'perform_snapshot'):
@@ -136,9 +141,6 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
             LOG.debug('Considering device %s', dev)
             volume_id = dev['Ebs']['VolumeId']
 
-            if volume_id in ignore_ids:
-                continue
-
             # find snapshots
             recent = volume_snap_recent.get(volume_id)
             now = datetime.datetime.now(dateutil.tz.tzutc())
@@ -146,26 +148,28 @@ def perform_snapshot(context, region, installed_region='us-east-1'):
             # snapshot due?
             if should_perform_snapshot(frequency, now, volume_id, recent):
                 LOG.debug('Performing snapshot for %s, calculating tags', volume_id)
+                dev_due_count = dev_due_count +1
             else:
-                LOG.debug('NOT Performing snapshot for %s', volume_id)
+                LOG.debug('Snapshot for %s is not due at this time', volume_id)
                 continue
 
+        if dev_due_count > 0:
             # perform actual snapshot and create tag: retention + now() as a Y-M-D
             delete_on_dt = now + retention
             delete_on = delete_on_dt.strftime('%Y-%m-%d')
 
-            volume_data = utils.get_volume(volume_id, region=region)
             expected_tags = utils.calculate_relevant_tags(
-                instance_data.get('Tags', None),
-                volume_data.get('Tags', None))
+                instance_data.get('Tags', None))
 
             utils.snapshot_and_tag(
                 instance_id,
                 ami_id,
-                volume_id,
                 delete_on,
                 region,
                 additional_tags=expected_tags)
+        else:
+            LOG.debug('NOT Performing snapshot for %s', instance_id)
+            continue
 
 
 def should_perform_snapshot(frequency, now, volume_id, recent=None):
